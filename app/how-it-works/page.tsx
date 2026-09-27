@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import Navbar from "@/components/Navbar";
-import HowItWorks from "@/components/HowItWorks";
-import OrbitalNotice from "@/components/OrbitalNotice";
-import FinalCTA from "@/components/FinalCTA";
-import Footer from "@/components/Footer";
+import Navbar from "@/frontend/components/Navbar";
+import HowItWorks from "@/frontend/components/HowItWorks";
+import OrbitalNotice from "@/frontend/components/OrbitalNotice";
+import FinalCTA from "@/frontend/components/FinalCTA";
+import Footer from "@/frontend/components/Footer";
+import { getNoticeSlides } from "@/backend/site";
 
 export const metadata: Metadata = {
   title: "How It Works",
@@ -21,7 +22,7 @@ export default function HowItWorksPage() {
       <Navbar />
       <main className="relative isolate">
         <HowItWorks />
-        <OrbitalNotice />
+        <OrbitalNotice slides={getNoticeSlides()} />
         <FinalCTA message="You know the steps now. The bot is ready when you are." />
       </main>
       <Footer />

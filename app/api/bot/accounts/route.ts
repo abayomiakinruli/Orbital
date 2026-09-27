@@ -1,5 +1,5 @@
-import { botHandler } from "@/lib/api";
-import { upsertAccount } from "@/lib/repo";
+import { botHandler } from "@/backend/api";
+import { upsertAccount } from "@/backend/repo";
 
 // POST { telegram_id, username?, full_name?, phone?, country? }
 // Registers a customer, or updates them if the telegram_id already exists.

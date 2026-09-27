@@ -1,5 +1,5 @@
-import { botHandler } from "@/lib/api";
-import { createReport } from "@/lib/repo";
+import { botHandler } from "@/backend/api";
+import { createReport } from "@/backend/repo";
 
 // POST { trade_id, account_id, message } — a customer's report tied to a
 // specific transaction. trade_id comes from /api/bot/track's response.

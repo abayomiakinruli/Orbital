@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
-import { loginBlocked, recordLoginFailure } from "@/lib/auth";
-import { getTradeByTransactionId } from "@/lib/repo";
+import { loginBlocked, recordLoginFailure } from "@/backend/auth";
+import { getTradeByTransactionId } from "@/backend/repo";
 
 // Public, read-only lookup behind the website's Track ID section
-// (components/TrackTransaction.tsx). Returns the same customer-safe fields
+// (frontend/components/TrackTransaction.tsx). Returns the same customer-safe fields
 // the bot's Track ID shows — no account, payout or address details.
 //
 // Transaction IDs carry only 5 random hex characters per day, so misses are

@@ -1,10 +1,10 @@
 import { removeUpdate, saveNoticeVisibility, saveUpdate } from "@/app/admin/actions";
-import { requireAdmin } from "@/lib/auth";
-import { MAX_NOTICE_POSTS, getNoticeEnabled, listAnnouncements, listNoticePosts } from "@/lib/repo";
-import { when } from "@/lib/format";
-import { ActionForm, inputClass } from "@/components/admin/ui";
-import NoticePostEditor from "@/components/admin/NoticePostEditor";
-import { noticeImageUrl } from "@/lib/noticeImages";
+import { requireAdmin } from "@/backend/auth";
+import { MAX_NOTICE_POSTS, getNoticeEnabled, listAnnouncements, listNoticePosts } from "@/backend/repo";
+import { when } from "@/frontend/lib/format";
+import { ActionForm, inputClass } from "@/frontend/components/admin/ui";
+import NoticePostEditor from "@/frontend/components/admin/NoticePostEditor";
+import { noticeImageUrl } from "@/backend/noticeImages";
 
 export const dynamic = "force-dynamic";
 

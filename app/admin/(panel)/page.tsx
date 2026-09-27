@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
-import { getRateSeries, listRates } from "@/lib/repo";
+import { requireAdmin } from "@/backend/auth";
+import { getRateSeries, listRates } from "@/backend/repo";
 import {
   getAssetBreakdown,
   getDailySeries,
@@ -10,14 +10,14 @@ import {
   listAccounts,
   listTrades,
   type Period,
-} from "@/lib/stats";
-import { ago, money, naira, when } from "@/lib/format";
-import TimeChart from "@/components/admin/TimeChart";
-import PriceChart from "@/components/admin/PriceChart";
-import Sparkline from "@/components/admin/Sparkline";
-import PriceChange from "@/components/PriceChange";
-import { getRateChange } from "@/lib/rates";
-import { AutoRefresh } from "@/components/admin/ui";
+} from "@/backend/stats";
+import { ago, money, naira, when } from "@/frontend/lib/format";
+import TimeChart from "@/frontend/components/admin/TimeChart";
+import PriceChart from "@/frontend/components/admin/PriceChart";
+import Sparkline from "@/frontend/components/admin/Sparkline";
+import PriceChange from "@/frontend/components/PriceChange";
+import { getRateChange } from "@/backend/rates";
+import { AutoRefresh } from "@/frontend/components/admin/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -178,7 +178,7 @@ function StackedBar({
   );
 }
 
-// The bot pings /api/bot/ping every 30s (see bot/index.ts's heartbeat)
+// The bot pings /api/bot/ping every 30s (see backend/bot/index.ts's heartbeat)
 // independent of customer activity, so a gap past a couple of missed beats
 // means the process itself is down, not just quiet.
 const BOT_ONLINE_THRESHOLD_MS = 90_000;
@@ -210,7 +210,7 @@ function BotStatusBadge({ lastSeen }: { lastSeen: string | null }) {
 function RatesTicker() {
   const items = listRates().filter((a) => a.active && a.rate);
   if (items.length === 0) return null;
-  // ~24h move of each coin's mid naira rate (lib/rates.ts getRateChange).
+  // ~24h move of each coin's mid naira rate (backend/rates.ts getRateChange).
   const changes = new Map(items.map((a) => [a.symbol, getRateChange(a.rate!, "ngn")]));
   return (
     <div

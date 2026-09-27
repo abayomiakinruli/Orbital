@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Space_Grotesk, DM_Sans } from "next/font/google";
 import { orbitalConfig } from "@/config/orbital";
-import Tracker from "@/components/Tracker";
-import "./globals.css";
+import Tracker from "@/frontend/components/Tracker";
+import "@/frontend/styles/globals.css";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",

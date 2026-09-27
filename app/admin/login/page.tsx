@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { login } from "@/app/admin/actions";
-import { inputClass } from "@/components/admin/ui";
+import { inputClass } from "@/frontend/components/admin/ui";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(login, {});

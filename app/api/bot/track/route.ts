@@ -1,5 +1,5 @@
-import { isBotRequest } from "@/lib/auth";
-import { getTradeByTransactionId, touchBot } from "@/lib/repo";
+import { isBotRequest } from "@/backend/auth";
+import { getTradeByTransactionId, touchBot } from "@/backend/repo";
 
 // GET /api/bot/track?id=ORBT-... — deliberately returns only what a
 // customer is allowed to see (spec: transaction ID, type, asset, amount,

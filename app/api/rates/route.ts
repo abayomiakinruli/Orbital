@@ -1,4 +1,4 @@
-import { getPublicRates } from "@/lib/rates";
+import { getPublicRates } from "@/backend/rates";
 
 // Public, read-only: ORBITAL's current rates for the website's Rates
 // section, which polls this to stay current. The same figures the bot's

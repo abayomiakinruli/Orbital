@@ -1,5 +1,5 @@
-import { isAdmin } from "@/lib/auth";
-import { listSubscribers } from "@/lib/repo";
+import { isAdmin } from "@/backend/auth";
+import { listSubscribers } from "@/backend/repo";
 
 // GET /admin/subscribers.csv — the footer sign-up list as a spreadsheet,
 // for the "Download CSV" link on /admin/subscribers. Admin session required.

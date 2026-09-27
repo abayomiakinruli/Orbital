@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
-import { loginBlocked, recordLoginFailure } from "@/lib/auth";
-import { ValidationError, addSubscriber } from "@/lib/repo";
+import { loginBlocked, recordLoginFailure } from "@/backend/auth";
+import { ValidationError, addSubscriber } from "@/backend/repo";
 
 // Public endpoint behind the footer's email sign-up
-// (components/NewsletterSignup.tsx). Each IP gets 5 sign-ups per 15 minutes
+// (frontend/components/NewsletterSignup.tsx). Each IP gets 5 sign-ups per 15 minutes
 // (the login limiter, under its own key prefix, counting every attempt)
 // so the list can't be flooded. `company` is a honeypot field real
 // visitors never see: a filled one means a bot, answered as a success.

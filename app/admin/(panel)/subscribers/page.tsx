@@ -1,12 +1,12 @@
 import { removeSubscriber } from "@/app/admin/actions";
-import { requireAdmin } from "@/lib/auth";
-import { listSubscribers } from "@/lib/repo";
-import { when } from "@/lib/format";
+import { requireAdmin } from "@/backend/auth";
+import { listSubscribers } from "@/backend/repo";
+import { when } from "@/frontend/lib/format";
 
 export const dynamic = "force-dynamic";
 
 // Every email left in the website footer's "Get ORBITAL updates" box
-// (components/NewsletterSignup.tsx), newest first.
+// (frontend/components/NewsletterSignup.tsx), newest first.
 export default async function SubscribersPage() {
   await requireAdmin();
   const subscribers = listSubscribers();

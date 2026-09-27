@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import LegalPage from "@/components/LegalPage";
-import { TERMS_UPDATED, termsIntro, termsSections } from "@/lib/legal/terms";
+import LegalPage from "@/frontend/components/LegalPage";
+import { TERMS_UPDATED, termsIntro, termsSections } from "@/frontend/content/legal/terms";
 
 export const metadata: Metadata = {
   title: "Terms of Service",

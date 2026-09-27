@@ -1,10 +1,10 @@
 import { recordTrade } from "@/app/admin/actions";
-import TradeStatusSelect from "@/components/admin/TradeStatusSelect";
-import { requireAdmin } from "@/lib/auth";
-import { accountOptions, listTrades } from "@/lib/stats";
-import { TRADE_STATUSES } from "@/lib/repo";
-import { money, when } from "@/lib/format";
-import { ActionForm, inputClass } from "@/components/admin/ui";
+import TradeStatusSelect from "@/frontend/components/admin/TradeStatusSelect";
+import { requireAdmin } from "@/backend/auth";
+import { accountOptions, listTrades } from "@/backend/stats";
+import { TRADE_STATUSES } from "@/backend/repo";
+import { money, when } from "@/frontend/lib/format";
+import { ActionForm, inputClass } from "@/frontend/components/admin/ui";
 
 export const dynamic = "force-dynamic";
 

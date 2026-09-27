@@ -1,5 +1,5 @@
-import { isBotRequest } from "@/lib/auth";
-import { getPaymentAccount, touchBot } from "@/lib/repo";
+import { isBotRequest } from "@/backend/auth";
+import { getPaymentAccount, touchBot } from "@/backend/repo";
 
 // GET-only. What the bot shows a buying customer so they know where to pay
 // ORBITAL — configurable from the dashboard, never hard-coded in the bot.

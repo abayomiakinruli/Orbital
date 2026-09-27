@@ -16,7 +16,7 @@ Run both checks; a pull request that fails either will not be merged:
 
 ```bash
 npx tsc --noEmit -p .
-npx eslint app components lib bot worker config
+npx eslint app frontend backend config
 ```
 
 Then check your change in a browser (website and `/admin`) and, if you touched the bot, in Telegram with your test bot.
@@ -24,9 +24,10 @@ Then check your change in a browser (website and `/admin`) and, if you touched t
 ## Working on the code
 
 - **This is Next.js 16.** APIs and conventions differ from older versions. Check the guides in `node_modules/next/dist/docs/` before using a Next.js feature (see `.claude/AGENTS.md`).
+- **Keep frontend and backend apart.** UI goes in `frontend/`, server logic in `backend/`. A page in `app/` loads data from the backend and passes it to frontend components as props. Frontend code may only import backend *types*; ESLint enforces this.
 - **Match the surrounding code.** Keep comments at the same density, explain *why* rather than *what*, and follow the existing naming.
-- **Database changes** go in `lib/db.ts`: add new tables to the schema, and add columns with the existing "check, then `ALTER TABLE`" pattern so existing databases upgrade themselves. Reads and writes live in `lib/repo.ts` and validate their input by throwing `ValidationError`.
-- **Money and rates** (`lib/rateEngine.ts`, `lib/margin.ts`, `app/api/bot/quote/route.ts`, the bot's buy and sell flows): explain the reasoning in the pull request, and never let a stale or unconfirmed rate reach a customer.
+- **Database changes** go in `backend/db.ts`: add new tables to the schema, and add columns with the existing "check, then `ALTER TABLE`" pattern so existing databases upgrade themselves. Reads and writes live in `backend/repo.ts` and validate their input by throwing `ValidationError`.
+- **Money and rates** (`backend/rateEngine.ts`, `backend/margin.ts`, `app/api/bot/quote/route.ts`, the bot's buy and sell flows): explain the reasoning in the pull request, and never let a stale or unconfirmed rate reach a customer.
 - **Security:** every admin route or action must check the admin session; every bot route must check `BOT_API_KEY`; treat all request input as untrusted.
 - **Website copy:** plain, specific language. Avoid dashes in public-facing text and avoid repeating the same phrase across sections.
 

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import Reveal from "@/components/Reveal";
-import { ChatIcon, CheckIcon, ReceiptIcon, SparkIcon } from "@/components/Icons";
+import Navbar from "@/frontend/components/Navbar";
+import Footer from "@/frontend/components/Footer";
+import Reveal from "@/frontend/components/Reveal";
+import { ChatIcon, CheckIcon, ReceiptIcon, SparkIcon } from "@/frontend/components/Icons";
 import { orbitalConfig } from "@/config/orbital";
 
 export const metadata: Metadata = {

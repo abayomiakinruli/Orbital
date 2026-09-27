@@ -1,8 +1,8 @@
 import { registerAccount } from "@/app/admin/actions";
-import { requireAdmin } from "@/lib/auth";
-import { listAccounts } from "@/lib/stats";
-import { money, when } from "@/lib/format";
-import { ActionForm, inputClass } from "@/components/admin/ui";
+import { requireAdmin } from "@/backend/auth";
+import { listAccounts } from "@/backend/stats";
+import { money, when } from "@/frontend/lib/format";
+import { ActionForm, inputClass } from "@/frontend/components/admin/ui";
 
 export const dynamic = "force-dynamic";
 

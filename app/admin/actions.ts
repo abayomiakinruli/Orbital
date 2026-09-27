@@ -3,8 +3,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { sendTelegramMessage } from "@/lib/telegram";
-import { tradeOutcomeMessage } from "@/lib/tradeMessages";
+import { sendTelegramMessage } from "@/backend/telegram";
+import { tradeOutcomeMessage } from "@/backend/tradeMessages";
 import {
   checkPassword,
   createSession,
@@ -12,7 +12,7 @@ import {
   isAdmin,
   loginBlocked,
   recordLoginFailure,
-} from "@/lib/auth";
+} from "@/backend/auth";
 import {
   ValidationError,
   addAssetAddress as repoAddAssetAddress,
@@ -32,7 +32,7 @@ import {
   updateTradeStatus,
   upsertAccount,
   upsertAsset,
-} from "@/lib/repo";
+} from "@/backend/repo";
 
 export type FormState = { error?: string; ok?: string };
 
@@ -109,7 +109,7 @@ export async function recordTrade(
 }
 
 // Called straight from the Trades table's status dropdown
-// (components/admin/TradeStatusSelect.tsx), which saves on change and
+// (frontend/components/admin/TradeStatusSelect.tsx), which saves on change and
 // shows this result inline.
 export async function setTradeStatus(id: number, status: string): Promise<FormState> {
   const before = getTradeNotifyInfo(id);
@@ -133,7 +133,7 @@ export async function setTradeStatus(id: number, status: string): Promise<FormSt
   return result;
 }
 
-// Every admin currently shares one login password (see lib/auth.ts), so
+// Every admin currently shares one login password (see backend/auth.ts), so
 // there's no individual identity to attribute a rate change to beyond this.
 const ADMIN_LABEL = "admin";
 

@@ -1,6 +1,6 @@
-import { EVENT_TYPES, recordEvent } from "@/lib/repo";
+import { EVENT_TYPES, recordEvent } from "@/backend/repo";
 
-// Public, write-only endpoint used by components/Tracker.tsx. It stores just
+// Public, write-only endpoint used by frontend/components/Tracker.tsx. It stores just
 // the event type and page path: no cookies, IPs or personal data.
 export async function POST(request: Request) {
   try {

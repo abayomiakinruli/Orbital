@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "bot": "tsx --env-file=.env.local bot/index.ts",
-    "rate-worker": "tsx --env-file=.env.local worker/rate-refresh.ts"
+    "bot": "tsx --env-file=.env.local backend/bot/index.ts",
+    "rate-worker": "tsx --env-file=.env.local backend/worker/rate-refresh.ts"
   },
   "dependencies": {
     "grammy": "^1.46.0",

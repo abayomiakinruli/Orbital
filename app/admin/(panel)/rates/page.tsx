@@ -9,9 +9,9 @@ import {
   setAssetRateMode,
   toggleAsset,
 } from "@/app/admin/actions";
-import { requireAdmin } from "@/lib/auth";
-import { ago, naira } from "@/lib/format";
-import { bybitConfigured } from "@/lib/bybit";
+import { requireAdmin } from "@/backend/auth";
+import { ago, naira } from "@/frontend/lib/format";
+import { bybitConfigured } from "@/backend/bybit";
 import {
   getMarginSettings,
   getPaymentAccount,
@@ -20,9 +20,9 @@ import {
   listAssetAddresses,
   listRates,
   type RateRow,
-} from "@/lib/repo";
-import { getRateStatus } from "@/lib/rateEngine";
-import { ActionForm, inputClass } from "@/components/admin/ui";
+} from "@/backend/repo";
+import { getRateStatus } from "@/backend/rateEngine";
+import { ActionForm, inputClass } from "@/frontend/components/admin/ui";
 
 const STATUS_DOT: Record<string, { color: string; label: string }> = {
   active: { color: "#0ca30c", label: "Rate active" },
@@ -95,7 +95,7 @@ export default async function RatesPage() {
   const marginSettings = getMarginSettings();
   // The raw rate row (including a stale/unavailable one, with its mode
   // intact) — this page needs to show true state, unlike the
-  // customer-facing lib/rates.ts's getEffectiveRates, which filters those
+  // customer-facing backend/rates.ts's getEffectiveRates, which filters those
   // out so a customer never gets quoted a stale number.
   const rates = listRates();
 

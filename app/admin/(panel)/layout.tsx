@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { requireAdmin } from "@/lib/auth";
-import Sidebar from "@/components/admin/Sidebar";
+import { requireAdmin } from "@/backend/auth";
+import Sidebar from "@/frontend/components/admin/Sidebar";
 
 const links = [
   { href: "/admin", label: "Dashboard" },

@@ -1,7 +1,7 @@
-import { isBotRequest } from "@/lib/auth";
-import { createQuote, getMarginSettings, getRate, marginTierFor, touchBot } from "@/lib/repo";
-import { classifyRateStatus, priceAssetLive } from "@/lib/rateEngine";
-import { priceAsset } from "@/lib/margin";
+import { isBotRequest } from "@/backend/auth";
+import { createQuote, getMarginSettings, getRate, marginTierFor, touchBot } from "@/backend/repo";
+import { classifyRateStatus, priceAssetLive } from "@/backend/rateEngine";
+import { priceAsset } from "@/backend/margin";
 
 // GET /api/bot/quote?symbol=USDT&side=buy&ngn_amount=50000[&hold=sell]
 // (ngn_amount optional: omitted while the bot is just sizing the trade,
@@ -10,7 +10,7 @@ import { priceAsset } from "@/lib/margin";
 // Unlike /api/bot/rate (a plain informational read), this is what the bot
 // calls when a customer is actually about to trade: it returns a quote —
 // an id, a rate, and an expiry — rather than a bare number, so "the rate
-// the customer saw" is a durable, re-checkable fact (lib/repo.ts's quotes
+// the customer saw" is a durable, re-checkable fact (backend/repo.ts's quotes
 // table).
 //
 // A bulk-sized amount (at or above the configurable threshold) is priced

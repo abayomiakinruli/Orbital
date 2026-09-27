@@ -6,9 +6,9 @@ This repository holds all three parts:
 
 | Part | What it does | Code |
 |---|---|---|
-| **Website + admin panel** | Public site (rates, How It Works, Track ID, Trade and Support pages, FAQ, legal pages) and a password-protected admin for trades, accounts, rates, announcements and email subscribers | `app/`, `components/` |
-| **Telegram bot** | The trading interface: quotes, buy and sell flows, staff alerts, trade tracking | `bot/index.ts` |
-| **Rate worker** | Refreshes every coin's buy/sell rate from Bybit on a schedule | `worker/rate-refresh.ts` |
+| **Website + admin panel** | Public site (rates, How It Works, Track ID, Trade and Support pages, FAQ, legal pages) and a password-protected admin for trades, accounts, rates, announcements and email subscribers | `frontend/`, `app/`, `backend/` |
+| **Telegram bot** | The trading interface: quotes, buy and sell flows, staff alerts, trade tracking | `backend/bot/index.ts` |
+| **Rate worker** | Refreshes every coin's buy/sell rate from Bybit on a schedule | `backend/worker/rate-refresh.ts` |
 
 All three share one SQLite database at `data/orbital.db` (created automatically, git-ignored).
 
@@ -32,19 +32,34 @@ The admin panel is at `/admin` (password: `ADMIN_PASSWORD` in `.env.local`).
 
 ## How pricing works
 
-The worker takes the USDT/NGN reference from Bybit P2P, multiplies by each coin's USDT price, and applies the margin settings (regular or bulk, set in `.env.local` or the admin). A quote is valid for 60 seconds; a seller's rate is held for 15 minutes while they send their crypto. Rates older than 30 minutes are never shown or quoted. See `lib/rateEngine.ts` and `app/api/bot/quote/route.ts`.
+The worker takes the USDT/NGN reference from Bybit P2P, multiplies by each coin's USDT price, and applies the margin settings (regular or bulk, set in `.env.local` or the admin). A quote is valid for 60 seconds; a seller's rate is held for 15 minutes while they send their crypto. Rates older than 30 minutes are never shown or quoted. See `backend/rateEngine.ts` and `app/api/bot/quote/route.ts`.
 
 ## Project layout
 
+The code is split into a frontend and a backend, with the Next.js routes in between:
+
 ```
-app/            pages, admin panel, API routes (app/api/bot/* is the bot's backend)
-components/     website and admin UI
-lib/            database (db.ts, repo.ts), rates, auth, uploads, Telegram helpers
-bot/            the Telegram bot
-worker/         the rate refresher
-config/         brand, links and default content (config/orbital.ts)
-AAA.Assets/     brand documents, images and advert files
+frontend/        everything visitors and admins see
+  components/    website and admin UI (admin/ for the admin panel)
+  content/       page copy, such as the legal documents
+  lib/           display helpers (formatting)
+  styles/        global CSS and design tokens
+backend/         everything that runs on the server
+  db.ts, repo.ts         database schema and data access
+  site.ts                display-ready data for the public site
+  rates.ts, rateEngine.ts, margin.ts, bybit.ts   pricing
+  auth.ts, validate.ts, telegram.ts, ...         security, input checks, notifications
+  bot/                   the Telegram bot
+  worker/                the rate refresher
+app/             Next.js routes: pages load data from backend/ and pass it to
+                 frontend/ as props; app/api/* are the HTTP endpoints
+                 (app/api/bot/* serves the bot)
+config/          brand, links and default content shared by both sides
+public/          static files (logos)
+AAA.Assets/      brand documents, images and advert files
 ```
+
+ESLint enforces the boundary: frontend code may import backend *types* only, and backend code may not import frontend or app code.
 
 ## Deploying
 

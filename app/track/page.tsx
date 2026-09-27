@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import Navbar from "@/components/Navbar";
-import TrackTransaction from "@/components/TrackTransaction";
-import OrbitalNotice from "@/components/OrbitalNotice";
-import FinalCTA from "@/components/FinalCTA";
-import Footer from "@/components/Footer";
+import Navbar from "@/frontend/components/Navbar";
+import TrackTransaction from "@/frontend/components/TrackTransaction";
+import OrbitalNotice from "@/frontend/components/OrbitalNotice";
+import FinalCTA from "@/frontend/components/FinalCTA";
+import Footer from "@/frontend/components/Footer";
+import { getNoticeSlides } from "@/backend/site";
 
 export const metadata: Metadata = {
   title: "Track Your Transaction",
@@ -26,7 +27,7 @@ export default async function TrackPage({
       <Navbar />
       <main className="relative isolate">
         <TrackTransaction initialId={typeof id === "string" ? id.slice(0, 40) : ""} />
-        <OrbitalNotice />
+        <OrbitalNotice slides={getNoticeSlides()} />
         <FinalCTA message="All sorted? Your next trade starts right here." />
       </main>
       <Footer />

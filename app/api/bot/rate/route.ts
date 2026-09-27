@@ -1,14 +1,14 @@
-import { isBotRequest } from "@/lib/auth";
-import { getTradeDurationMinutes, listAssets, touchBot } from "@/lib/repo";
-import { getEffectiveRates } from "@/lib/rates";
+import { isBotRequest } from "@/backend/auth";
+import { getTradeDurationMinutes, listAssets, touchBot } from "@/backend/repo";
+import { getEffectiveRates } from "@/backend/rates";
 
-// GET-only, so it doesn't fit lib/api.ts's botHandler (which expects a JSON
+// GET-only, so it doesn't fit backend/api.ts's botHandler (which expects a JSON
 // body). Same Bearer-token check as every other /api/bot/* route.
 //
 // Returns every active, priced asset — a plain read, no live Bybit call.
-// An 'auto' asset's rate is kept fresh by worker/rate-refresh.ts on its own
+// An 'auto' asset's rate is kept fresh by backend/worker/rate-refresh.ts on its own
 // schedule; this just serves whatever's currently stored (see
-// lib/rates.ts). Used for informational reads (the bot's "See today's
+// backend/rates.ts). Used for informational reads (the bot's "See today's
 // rates" listing, the admin dashboard) — an actual trade quote goes
 // through /api/bot/quote instead, which carries an expiry and can trigger
 // an on-demand live re-check for a bulk-sized trade. An active asset with

@@ -1,12 +1,12 @@
-import { deleteNoticePost, updateNoticePost } from "@/lib/repo";
-import { deleteNoticeImage } from "@/lib/noticeImages";
+import { deleteNoticePost, updateNoticePost } from "@/backend/repo";
+import { deleteNoticeImage } from "@/backend/noticeImages";
 import {
   postInput,
   rejectUnlessAdmin,
   respond,
   savedImage,
   validationResponse,
-} from "@/lib/noticePostRequest";
+} from "@/backend/noticePostRequest";
 
 type Ctx = { params: Promise<{ id: string }> };
 

@@ -1,10 +1,10 @@
-import { isBotRequest } from "@/lib/auth";
-import { listAssetAddresses, touchBot } from "@/lib/repo";
+import { isBotRequest } from "@/backend/auth";
+import { listAssetAddresses, touchBot } from "@/backend/repo";
 
 // GET /api/bot/addresses?symbol=USDT — deposit/receiving addresses for one
 // asset, configured on the dashboard. An empty list means none are set up
 // yet; more than one means the bot must ask which network before showing
-// an address (see bot/index.ts).
+// an address (see backend/bot/index.ts).
 export async function GET(request: Request) {
   if (!isBotRequest(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });

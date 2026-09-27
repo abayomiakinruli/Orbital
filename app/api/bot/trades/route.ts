@@ -1,5 +1,5 @@
-import { botHandler } from "@/lib/api";
-import { createTrade } from "@/lib/repo";
+import { botHandler } from "@/backend/api";
+import { createTrade } from "@/backend/repo";
 
 // POST { telegram_id | account_id, asset, side, amount, fiat_amount,
 //        rate?, fiat_currency?, status? }

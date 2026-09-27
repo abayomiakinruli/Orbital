@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import Reveal from "@/components/Reveal";
+import Navbar from "@/frontend/components/Navbar";
+import Footer from "@/frontend/components/Footer";
+import Reveal from "@/frontend/components/Reveal";
 import { orbitalConfig } from "@/config/orbital";
-import { BankIcon, PhoneIcon, ReceiptIcon, WalletIcon } from "@/components/Icons";
+import { BankIcon, PhoneIcon, ReceiptIcon, WalletIcon } from "@/frontend/components/Icons";
 
 export const metadata: Metadata = {
   title: "Trade",

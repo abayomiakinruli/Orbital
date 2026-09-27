@@ -1,7 +1,7 @@
-import { readNoticeImage } from "@/lib/noticeImages";
+import { readNoticeImage } from "@/backend/noticeImages";
 
 // Serves an Important Update slide uploaded from /admin/announcements
-// (stored under data/uploads, see lib/noticeImages.ts). File names are
+// (stored under data/uploads, see backend/noticeImages.ts). File names are
 // random and never reused, so each one can be cached for good.
 export async function GET(_request: Request, { params }: { params: Promise<{ file: string }> }) {
   const { file } = await params;

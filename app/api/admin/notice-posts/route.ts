@@ -1,11 +1,11 @@
-import { createNoticePost } from "@/lib/repo";
+import { createNoticePost } from "@/backend/repo";
 import {
   postInput,
   rejectUnlessAdmin,
   respond,
   savedImage,
   validationResponse,
-} from "@/lib/noticePostRequest";
+} from "@/backend/noticePostRequest";
 
 // POST — add an Important Update post (multipart: tag, title, message,
 // buttonText, buttonUrl, optional image).

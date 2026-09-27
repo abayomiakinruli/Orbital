@@ -1,5 +1,5 @@
-import { botHandler } from "@/lib/api";
-import { ValidationError, getTradeNotifyInfo, updateTradeStatus } from "@/lib/repo";
+import { botHandler } from "@/backend/api";
+import { ValidationError, getTradeNotifyInfo, updateTradeStatus } from "@/backend/repo";
 
 // PATCH { status: "processing" | "successful" | "failed" }
 export async function PATCH(
