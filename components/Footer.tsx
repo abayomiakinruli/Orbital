@@ -1,7 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import { InstagramLogo, XLogo } from "@/components/Icons";
 import { orbitalConfig } from "@/config/orbital";
+
+// Icon for each social network in config/orbital.ts `socials`, by label.
+const SOCIAL_ICONS: Record<string, (p: { className?: string }) => React.ReactNode> = {
+  X: XLogo,
+  Instagram: InstagramLogo,
+};
 
 const footerLinks = [
   { label: "About", href: "/#about" },
@@ -49,17 +56,22 @@ export default function Footer() {
             </nav>
             {orbitalConfig.socials.length > 0 && (
               <div className="mt-8 flex flex-wrap gap-3">
-                {orbitalConfig.socials.map((s) => (
-                  <a
-                    key={s.url}
-                    href={s.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-full border border-line-dark px-4 py-2 text-xs text-paper/70 transition-colors hover:border-paper hover:text-paper"
-                  >
-                    {s.label}
-                  </a>
-                ))}
+                {orbitalConfig.socials.map((s) => {
+                  const Icon = SOCIAL_ICONS[s.label];
+                  return (
+                    <a
+                      key={s.url}
+                      href={s.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`ORBITAL on ${s.label}`}
+                      title={s.label}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-line-dark text-paper/70 transition-colors hover:border-accent hover:bg-accent hover:text-accent-ink"
+                    >
+                      {Icon ? <Icon /> : <span className="text-xs">{s.label}</span>}
+                    </a>
+                  );
+                })}
               </div>
             )}
           </div>

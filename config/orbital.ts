@@ -39,7 +39,10 @@ export const orbitalConfig = {
   // Official social accounts, shown in the footer. Add entries like
   // { label: "Instagram", url: "https://instagram.com/yourhandle" }; the
   // footer shows nothing here until at least one is added.
-  socials: [] as { label: string; url: string }[],
+  socials: [
+    { label: "X", url: "https://x.com/orbitalglobal" },
+    { label: "Instagram", url: "https://www.instagram.com/orbitalglobal" },
+  ] as { label: string; url: string }[],
 
   // The ORBITAL Notice section. Toggle `enabled` to show or hide it
   // without touching any component code. Structured so it can later be
