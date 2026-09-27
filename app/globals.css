@@ -1,0 +1,249 @@
+@import "tailwindcss";
+
+:root {
+  --color-paper: #f7f5ee;
+  --color-paper-dim: #eeeadf;
+  --color-ink: #0b0b0a;
+  --color-charcoal: #171714;
+  --color-graphite: #58564d;
+  --color-line: #ddd7c7;
+  --color-line-dark: #33322c;
+  --color-accent: #34bb78;
+  --color-accent-ink: #0a1f14;
+  --color-space: #07080a;
+}
+
+@theme inline {
+  --color-paper: var(--color-paper);
+  --color-paper-dim: var(--color-paper-dim);
+  --color-ink: var(--color-ink);
+  --color-charcoal: var(--color-charcoal);
+  --color-graphite: var(--color-graphite);
+  --color-line: var(--color-line);
+  --color-line-dark: var(--color-line-dark);
+  --color-accent: var(--color-accent);
+  --color-accent-ink: var(--color-accent-ink);
+  --color-space: var(--color-space);
+
+  --font-display: var(--font-space-grotesk);
+  --font-sans: var(--font-dm-sans);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Tailwind v4 leaves buttons with the default arrow cursor; restore the hand. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+/* Scroll-reveal utility, driven by IntersectionObserver in components/Reveal.tsx */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Hero entrance animation, plays once on mount */
+.hero-fade {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: hero-fade-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes hero-fade-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hero background field: dashed path + floating nodes */
+.field-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: field-float 6s ease-in-out infinite;
+}
+
+@keyframes field-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Hero orbital visual */
+.orbit {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 9999px;
+  animation: orbit-spin linear infinite;
+}
+
+.orbit::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  /* The hero this ring sits on is now black — a light marker with a soft
+     glow reads as a satellite on its track, instead of the old dark dot. */
+  background: var(--color-paper);
+  transform: translateX(-50%);
+  box-shadow: 0 0 14px 3px rgba(247, 245, 238, 0.35);
+}
+
+.orbit-1 {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(247, 245, 238, 0.45);
+  animation-duration: 26s;
+}
+
+.orbit-2 {
+  width: 70%;
+  height: 70%;
+  border: 1px solid rgba(247, 245, 238, 0.6);
+  animation-duration: 17s;
+  animation-direction: reverse;
+}
+
+.orbit-3 {
+  width: 42%;
+  height: 42%;
+  border: 1px solid rgba(247, 245, 238, 0.85);
+  animation-duration: 11s;
+}
+
+@keyframes orbit-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Floating hexagon coins on the hero background */
+.coin-float {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: coin-float 7s ease-in-out infinite;
+  filter: drop-shadow(0 10px 10px rgba(11, 11, 10, 0.16));
+}
+
+@keyframes coin-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+/* Live price ticker tape */
+.ticker-track {
+  animation: ticker-scroll 26s linear infinite;
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-25%);
+  }
+}
+
+.live-pulse {
+  animation: live-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* The Rates section's clock: its hand sweeps round continuously. */
+.clock-hand {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  animation: clock-sweep 4s linear infinite;
+}
+
+@keyframes clock-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes live-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  75%,
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .coin-float,
+  .orbit,
+  .field-node,
+  .ticker-track,
+  .live-pulse,
+  .clock-hand {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Scroll containers that scroll without a visible bar (the Important Update carousel). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

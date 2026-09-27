@@ -1,0 +1,26 @@
+import type { ReactNode } from "react";
+import { requireAdmin } from "@/lib/auth";
+import Sidebar from "@/components/admin/Sidebar";
+
+const links = [
+  { href: "/admin", label: "Dashboard" },
+  { href: "/admin/accounts", label: "Accounts" },
+  { href: "/admin/trades", label: "Trades" },
+  { href: "/admin/rates", label: "Assets & Rates" },
+  { href: "/admin/announcements", label: "Announcements" },
+  { href: "/admin/subscribers", label: "Subscribers" },
+];
+
+export default async function PanelLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  await requireAdmin();
+  return (
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <Sidebar links={links} />
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+    </div>
+  );
+}
