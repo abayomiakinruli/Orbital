@@ -1,6 +1,14 @@
 import { Bot, InlineKeyboard } from "grammy";
 import { orbitalConfig } from "../config/orbital";
 import { tradeOutcomeMessage } from "../lib/tradeMessages";
+import {
+  checkAccountName,
+  checkAccountNumber,
+  checkBankName,
+  checkCoinAmount,
+  checkTransactionId,
+  checkWalletAddress,
+} from "../lib/validate";
 
 // ORBITAL trading bot — the primary trading interface (the website only
 // links here). The bot holds no pricing or business logic of its own: every
@@ -695,14 +703,13 @@ bot.on("message:text", async (ctx) => {
   }
 
   if (draft.step === "buyAmount") {
-    const value = Number(ctx.message.text.replace(/[,\s]/g, ""));
-    if (!Number.isFinite(value) || value <= 0 || value > 1_000_000_000) {
-      return ctx.reply("Please send a valid amount greater than 0.");
-    }
+    const amount = checkCoinAmount(ctx.message.text);
+    if (!amount.ok) return ctx.reply(amount.error);
+    const value = Number(amount.value);
     const nairaValue = roundNaira(value * draft.buyRate!);
     if (nairaValue < MIN_NGN || nairaValue > MAX_NGN) {
       return ctx.reply(
-        `That works out to ${naira(nairaValue)}, which is outside our range of ${naira(MIN_NGN)}–${naira(MAX_NGN)}. Please adjust the amount.`,
+        `That works out to ${naira(nairaValue)}, which is outside our range of ${naira(MIN_NGN)} to ${naira(MAX_NGN)}. Please adjust the amount.`,
       );
     }
     draft.coinAmount = value;
@@ -718,11 +725,11 @@ bot.on("message:text", async (ctx) => {
   }
 
   if (draft.step === "buyAddress") {
-    const value = ctx.message.text.trim();
-    if (value.length < 6 || value.length > 200) {
-      return ctx.reply("Please send a valid address.");
-    }
-    draft.address = value;
+    // Checked against the chosen network's address format; the step
+    // stays open so the customer can simply send a corrected address.
+    const address = checkWalletAddress(draft.asset!, draft.network, ctx.message.text);
+    if (!address.ok) return ctx.reply(address.error);
+    draft.address = address.value;
     draft.step = null;
 
     // A fresh, authoritative quote now that the real ₦ amount is known —
@@ -757,54 +764,49 @@ bot.on("message:text", async (ctx) => {
   }
 
   if (draft.step === "sellCoin") {
-    const value = Number(ctx.message.text.replace(/[,\s]/g, ""));
-    if (!Number.isFinite(value) || value <= 0 || value > 1_000_000_000) {
-      return ctx.reply("Please send a valid amount greater than 0.");
-    }
+    const amount = checkCoinAmount(ctx.message.text);
+    if (!amount.ok) return ctx.reply(amount.error);
+    const value = Number(amount.value);
     const naira_ = roundNaira(value * draft.sellRate!);
     if (naira_ < MIN_NGN || naira_ > MAX_NGN) {
       return ctx.reply(
-        `That works out to ${naira(naira_)}, which is outside our range of ${naira(MIN_NGN)}–${naira(MAX_NGN)}. Please adjust the amount.`,
+        `That works out to ${naira(naira_)}, which is outside our range of ${naira(MIN_NGN)} to ${naira(MAX_NGN)}. Please adjust the amount.`,
       );
     }
     draft.coinAmount = value;
     draft.nairaAmount = naira_;
     draft.step = "sellAccountName";
-    return ctx.reply("Please enter your account Name");
+    return ctx.reply("Please enter the account name exactly as your bank shows it.");
   }
 
   if (draft.step === "sellAccountName") {
-    const value = ctx.message.text.trim();
-    if (value.length < 2 || value.length > 120) {
-      return ctx.reply("Please enter your account Name");
-    }
-    draft.accountName = value;
+    const name = checkAccountName(ctx.message.text);
+    if (!name.ok) return ctx.reply(name.error);
+    draft.accountName = name.value;
     draft.step = "sellAccountNumber";
-    return ctx.reply("Please enter account number");
+    return ctx.reply("Please enter your 10 digit account number.");
   }
 
   if (draft.step === "sellAccountNumber") {
-    const value = ctx.message.text.trim().replace(/[\s-]/g, "");
-    if (!/^\d{6,20}$/.test(value)) {
-      return ctx.reply("Please enter account number — digits only, 6 to 20 characters.");
-    }
-    draft.accountNumber = value;
+    const number = checkAccountNumber(ctx.message.text);
+    if (!number.ok) return ctx.reply(number.error);
+    draft.accountNumber = number.value;
     draft.step = "sellBankName";
     return ctx.reply("Please enter your bank name");
   }
 
   if (draft.step === "sellBankName") {
-    const value = ctx.message.text.trim();
-    if (value.length < 2 || value.length > 80) {
-      return ctx.reply("Please enter your bank name");
-    }
-    draft.bankName = value;
+    const bank = checkBankName(ctx.message.text);
+    if (!bank.ok) return ctx.reply(bank.error);
+    draft.bankName = bank.value;
     draft.step = null;
     return ctx.reply(sellOrderSummary(draft), { reply_markup: sellSummaryKeyboard() });
   }
 
   if (draft.step === "trackId") {
-    const id = ctx.message.text.trim();
+    const checked = checkTransactionId(ctx.message.text);
+    if (!checked.ok) return ctx.reply(checked.error);
+    const id = checked.value;
     draft.step = null;
     let trade: TrackedTrade | null;
     try {

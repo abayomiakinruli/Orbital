@@ -23,7 +23,7 @@ Then check your change in a browser (website and `/admin`) and, if you touched t
 
 ## Working on the code
 
-- **This is Next.js 16.** APIs and conventions differ from older versions. Check the guides in `node_modules/next/dist/docs/` before using a Next.js feature (see `AGENTS.md`).
+- **This is Next.js 16.** APIs and conventions differ from older versions. Check the guides in `node_modules/next/dist/docs/` before using a Next.js feature (see `.claude/AGENTS.md`).
 - **Match the surrounding code.** Keep comments at the same density, explain *why* rather than *what*, and follow the existing naming.
 - **Database changes** go in `lib/db.ts`: add new tables to the schema, and add columns with the existing "check, then `ALTER TABLE`" pattern so existing databases upgrade themselves. Reads and writes live in `lib/repo.ts` and validate their input by throwing `ValidationError`.
 - **Money and rates** (`lib/rateEngine.ts`, `lib/margin.ts`, `app/api/bot/quote/route.ts`, the bot's buy and sell flows): explain the reasoning in the pull request, and never let a stale or unconfirmed rate reach a customer.

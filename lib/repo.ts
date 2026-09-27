@@ -1,6 +1,13 @@
 import { genQuoteId, genTransactionId, getDb } from "@/lib/db";
 import type { MarginMode, MarginTier } from "@/lib/margin";
 import { orbitalConfig } from "@/config/orbital";
+import {
+  checkAccountName,
+  checkAccountNumber,
+  checkBankName,
+  checkWalletAddress,
+  type Check,
+} from "@/lib/validate";
 
 // Writes shared by the admin panel (server actions) and the Telegram bot API.
 // Every function validates its input and throws `ValidationError` on bad data.
@@ -125,6 +132,15 @@ function uniqueTransactionId(): string {
   throw new Error("Could not generate a unique transaction ID");
 }
 
+// Runs a lib/validate.ts check on an optional field: null stays null, a
+// valid value comes back normalised, an invalid one throws ValidationError.
+function checked(check: (value: string) => Check, value: string | null): string | null {
+  if (value === null) return null;
+  const result = check(value);
+  if (!result.ok) throw new ValidationError(result.error);
+  return result.value;
+}
+
 export function createTrade(input: TradeInput): { id: number; transaction_id: string } {
   const db = getDb();
 
@@ -161,9 +177,10 @@ export function createTrade(input: TradeInput): { id: number; transaction_id: st
 
   // A sell pays the customer out, so we need somewhere to send it. A buy
   // doesn't (the customer pays ORBITAL), so these stay null there.
-  const accountNumber = text(input.account_number, 30);
-  const accountName = text(input.account_name, 120);
-  const bankName = text(input.bank_name, 80);
+  // Same checks the bot applies as the customer types (lib/validate.ts).
+  const accountNumber = checked(checkAccountNumber, text(input.account_number, 30));
+  const accountName = checked(checkAccountName, text(input.account_name, 120));
+  const bankName = checked(checkBankName, text(input.bank_name, 80));
   if (side === "sell" && (!accountNumber || !accountName)) {
     throw new ValidationError(
       "account_number and account_name are required for a sell",
@@ -171,10 +188,12 @@ export function createTrade(input: TradeInput): { id: number; transaction_id: st
   }
   // Audit-only: buy = the customer's own receiving address/network; sell =
   // the ORBITAL deposit address/network actually shown to this customer.
-  // Not verified against any real chain — same light-touch handling as the
-  // bank-detail fields above.
+  // Checked against the network's address format, not against the chain.
   const network = text(input.network, 40);
-  const destAddress = text(input.dest_address, 200);
+  const rawAddress = text(input.dest_address, 200);
+  const destAddress = rawAddress
+    ? checked((value) => checkWalletAddress(asset, network, value), rawAddress)
+    : null;
 
   const transactionId = uniqueTransactionId();
   const result = db

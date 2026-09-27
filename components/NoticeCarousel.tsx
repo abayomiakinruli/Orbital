@@ -74,7 +74,7 @@ function Slide({ slide, label }: { slide: NoticeSlide; label: string }) {
         {slide.imageUrl && (
           <div
             className={`relative bg-ink ${
-              hasText ? "aspect-video md:aspect-auto md:w-1/2" : "min-h-[22rem] flex-1"
+              hasText ? "aspect-video md:aspect-auto md:w-1/2" : "aspect-video flex-1 md:aspect-auto"
             }`}
           >
             <Image src={slide.imageUrl} alt={alt} fill unoptimized className="object-contain" />

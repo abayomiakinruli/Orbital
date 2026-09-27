@@ -48,4 +48,4 @@ AAA.Assets/     brand documents, images and advert files
 
 ## Deploying
 
-See [DEPLOY.md](DEPLOY.md). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).
+See [.claude/DEPLOY.md](.claude/DEPLOY.md). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).
