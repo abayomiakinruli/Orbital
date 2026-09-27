@@ -7,10 +7,11 @@ import WhyOrbital from "@/frontend/components/WhyOrbital";
 import OrbitalNotice from "@/frontend/components/OrbitalNotice";
 import Updates from "@/frontend/components/Updates";
 import FAQ from "@/frontend/components/FAQ";
+import InstagramFeed from "@/frontend/components/InstagramFeed";
 import FinalCTA from "@/frontend/components/FinalCTA";
 import Footer from "@/frontend/components/Footer";
 import { getPublicRates } from "@/backend/rates";
-import { getNoticeSlides, getPublicUpdates } from "@/backend/site";
+import { getInstagramFeed, getNoticeSlides, getPublicUpdates } from "@/backend/site";
 
 // The Important Update banner, Updates cards (edited at /admin/announcements) and
 // ORBITAL rates are read from the database, so render on each request rather
@@ -30,6 +31,7 @@ export default function Home() {
         <Updates updates={getPublicUpdates()} />
         <Assets initialRates={getPublicRates()} />
         <FAQ />
+        <InstagramFeed posts={getInstagramFeed()} />
         <FinalCTA />
       </main>
       <Footer />

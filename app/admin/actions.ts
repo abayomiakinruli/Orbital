@@ -3,6 +3,12 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import {
+  connectInstagram,
+  disconnectInstagram,
+  getInstagramStatus,
+  syncInstagramPosts,
+} from "@/backend/instagram";
 import { sendTelegramMessage } from "@/backend/telegram";
 import { tradeOutcomeMessage } from "@/backend/tradeMessages";
 import {
@@ -287,4 +293,48 @@ export async function removeUpdate(formData: FormData) {
 
 export async function removeSubscriber(formData: FormData) {
   await guard(() => deleteSubscriber(formData.get("id")), "Removed.");
+}
+
+// --- Instagram feed (backend/instagram.ts) -----------------------------------
+
+function refreshInstagramPages() {
+  revalidatePath("/");
+  revalidatePath("/admin", "layout");
+}
+
+export async function connectInstagramAccount(
+  _: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (!(await isAdmin())) return { error: "Session expired. Log in again." };
+  try {
+    const username = await connectInstagram(formData.get("token"));
+    refreshInstagramPages();
+    const status = getInstagramStatus();
+    return status?.lastError
+      ? { error: `Connected as @${username}, but fetching posts failed: ${status.lastError}` }
+      : { ok: `Connected as @${username}. Your latest posts are on the homepage.` };
+  } catch (e) {
+    if (e instanceof ValidationError) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function syncInstagramNow(previous: FormState): Promise<FormState> {
+  void previous;
+  if (!(await isAdmin())) return { error: "Session expired. Log in again." };
+  try {
+    const count = await syncInstagramPosts();
+    refreshInstagramPages();
+    return count === null ? { error: "Instagram isn't connected." } : { ok: `Synced ${count} posts.` };
+  } catch (e) {
+    refreshInstagramPages();
+    return { error: `Sync failed: ${e instanceof Error ? e.message : e}` };
+  }
+}
+
+export async function disconnectInstagramAccount(formData: FormData) {
+  void formData;
+  await guard(() => disconnectInstagram(), "Disconnected.");
+  refreshInstagramPages();
 }
