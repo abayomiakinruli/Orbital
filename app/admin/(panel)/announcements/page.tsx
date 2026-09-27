@@ -1,15 +1,7 @@
-import {
-  connectInstagramAccount,
-  disconnectInstagramAccount,
-  removeUpdate,
-  saveNoticeVisibility,
-  saveUpdate,
-  syncInstagramNow,
-} from "@/app/admin/actions";
-import { getInstagramStatus, listInstagramPosts } from "@/backend/instagram";
+import { removeUpdate, saveNoticeVisibility, saveUpdate } from "@/app/admin/actions";
 import { requireAdmin } from "@/backend/auth";
 import { MAX_NOTICE_POSTS, getNoticeEnabled, listAnnouncements, listNoticePosts } from "@/backend/repo";
-import { ago, when } from "@/frontend/lib/format";
+import { when } from "@/frontend/lib/format";
 import { ActionForm, inputClass } from "@/frontend/components/admin/ui";
 import NoticePostEditor from "@/frontend/components/admin/NoticePostEditor";
 import { noticeImageUrl } from "@/backend/noticeImages";
@@ -21,9 +13,6 @@ const labelClass = "mb-1 block text-xs font-medium text-graphite";
 export default async function AnnouncementsPage() {
   await requireAdmin();
   const noticeEnabled = getNoticeEnabled();
-  const instagram = getInstagramStatus();
-  const instagramPostCount = listInstagramPosts(12).length;
-  const instagramLive = instagram !== null && instagramPostCount > 0;
   const posts = listNoticePosts();
   const updates = listAnnouncements();
   const liveCount = updates.filter((u) => u.published).length;
@@ -105,68 +94,6 @@ export default async function AnnouncementsPage() {
           All {MAX_NOTICE_POSTS} posts are in use. Delete one to add another.
         </p>
       )}
-
-      {/* --- Instagram feed ------------------------------------------------ */}
-      <div className="rounded-2xl border border-line bg-white p-5">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="font-display text-sm font-semibold text-ink">Instagram feed</p>
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              instagramLive ? "bg-accent text-accent-ink" : "bg-paper-dim text-graphite"
-            }`}
-          >
-            {instagramLive ? "Showing on website" : instagram ? "Connected, no posts yet" : "Not connected"}
-          </span>
-        </div>
-        <p className="mb-4 text-xs text-graphite">
-          Shows your latest 6 Instagram posts on the homepage. Posts sync every hour and the
-          access token renews itself, so this only needs setting up once.
-        </p>
-        {instagram && (
-          <div className="mb-4 space-y-3">
-            <p className="text-sm text-ink">
-              Connected as <span className="font-medium">@{instagram.username || "your account"}</span>
-              <span className="text-graphite">
-                {" "}
-                · {instagramPostCount} posts ·{" "}
-                {instagram.lastSyncAt
-                  ? `last synced ${ago(instagram.lastSyncAt.replace("T", " ").slice(0, 19))}`
-                  : "not synced yet"}
-              </span>
-            </p>
-            {instagram.lastError && (
-              <p className="text-sm text-red-700">Last sync problem: {instagram.lastError}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-4">
-              <ActionForm action={syncInstagramNow} submit="Sync now" className="flex items-center gap-3">
-                {null}
-              </ActionForm>
-              <form action={disconnectInstagramAccount}>
-                <button className="text-sm text-red-700 hover:underline">Disconnect</button>
-              </form>
-            </div>
-          </div>
-        )}
-        <ActionForm
-          action={connectInstagramAccount}
-          submit={instagram ? "Replace token" : "Connect Instagram"}
-          className="space-y-3"
-        >
-          <div>
-            <label className={labelClass} htmlFor="instagram-token">
-              Access token from the Meta app dashboard
-            </label>
-            <input
-              id="instagram-token"
-              name="token"
-              type="password"
-              autoComplete="off"
-              placeholder="Paste your Instagram access token"
-              className={inputClass}
-            />
-          </div>
-        </ActionForm>
-      </div>
 
       {/* --- Updates ---------------------------------------------------- */}
       <div className="rounded-2xl border border-line bg-white p-5">

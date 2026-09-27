@@ -1,6 +1,5 @@
 import { getNoticeEnabled, listAnnouncements, listNoticePosts } from "@/backend/repo";
 import { noticeImageUrl } from "@/backend/noticeImages";
-import { instagramImageUrl, listInstagramPosts } from "@/backend/instagram";
 
 // Display-ready data for the public site. Pages in app/ call these and pass
 // the results to frontend components as props, so no frontend component
@@ -43,23 +42,4 @@ export function getPublicUpdates(max = 6): PublicUpdate[] {
   return listAnnouncements(true)
     .slice(0, max)
     .map((u) => ({ id: u.id, tag: u.tag, dateLabel: u.date_label, title: u.title, content: u.content }));
-}
-
-export type InstagramFeedPost = {
-  id: string;
-  permalink: string;
-  caption: string | null;
-  imageUrl: string;
-  isVideo: boolean;
-};
-
-// The latest Instagram posts for the homepage, or [] if not connected.
-export function getInstagramFeed(limit = 6): InstagramFeedPost[] {
-  return listInstagramPosts(limit).map((p) => ({
-    id: p.id,
-    permalink: p.permalink,
-    caption: p.caption,
-    imageUrl: instagramImageUrl(p.image_file),
-    isVideo: p.media_type === "VIDEO",
-  }));
 }

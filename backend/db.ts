@@ -184,19 +184,6 @@ CREATE TABLE IF NOT EXISTS notice_posts (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- The latest posts from ORBITAL's Instagram (backend/instagram.ts), synced
--- hourly by the rate worker. Images are downloaded to data/uploads/instagram
--- and served by the site, so visitors never load anything from Instagram.
-CREATE TABLE IF NOT EXISTS instagram_posts (
-  id TEXT PRIMARY KEY,
-  permalink TEXT NOT NULL,
-  caption TEXT,
-  media_type TEXT NOT NULL,
-  image_file TEXT NOT NULL,
-  posted_at TEXT NOT NULL,
-  synced_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
 -- Emails left in the website footer's "Get ORBITAL updates" box. Listed
 -- and exported from /admin/subscribers. source = the page they signed up on.
 CREATE TABLE IF NOT EXISTS subscribers (
