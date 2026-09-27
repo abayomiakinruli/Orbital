@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Space_Grotesk, DM_Sans } from "next/font/google";
 import { orbitalConfig } from "@/config/orbital";
 import Tracker from "@/frontend/components/Tracker";
+import SplashScreen from "@/frontend/components/SplashScreen";
 import "@/frontend/styles/globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -52,6 +53,11 @@ export const metadata: Metadata = {
   },
 };
 
+// Runs before first paint: skips the intro splash when it was already seen
+// this visit (or storage is unavailable), so it never flashes on reloads or
+// later pages. See frontend/components/SplashScreen.tsx.
+const SPLASH_CHECK = `try{if(sessionStorage.getItem("orbital-splash-seen"))document.documentElement.dataset.splashDone="1"}catch(e){document.documentElement.dataset.splashDone="1"}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
@@ -59,8 +65,17 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${spaceGrotesk.variable} ${dmSans.variable} scroll-smooth`}
+      // SPLASH_CHECK may add data-splash-done before React hydrates.
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SPLASH_CHECK }} />
+        <noscript>
+          <style>{`.splash{display:none}.hero-fade{animation-play-state:running!important}`}</style>
+        </noscript>
+      </head>
       <body className="min-h-screen bg-paper font-sans text-ink antialiased">
+        <SplashScreen />
         {children}
         <Tracker />
       </body>
