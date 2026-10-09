@@ -46,7 +46,7 @@ export default function HowItWorks() {
       <div className="mx-auto max-w-7xl px-6 lg:px-10">
         <div className="max-w-3xl">
           <Reveal>
-            <p className="font-display text-xs font-medium tracking-[0.25em] text-paper/50 uppercase">
+            <p className="font-display text-xs font-medium tracking-[0.25em] text-white uppercase">
               How It Works
             </p>
           </Reveal>
@@ -56,7 +56,7 @@ export default function HowItWorks() {
             </h1>
           </Reveal>
           <Reveal delayMs={160}>
-            <p className="mt-6 text-lg leading-relaxed text-paper/70">
+            <p className="mt-6 text-lg leading-relaxed text-white">
               Six steps, start to finish. Stuck at any point? Our team is a
               message away.
             </p>
@@ -68,16 +68,16 @@ export default function HowItWorks() {
         <ol className="relative mt-16 max-w-3xl">
           <span aria-hidden="true" className="absolute top-2 bottom-2 left-6 w-px bg-linear-to-b from-accent via-accent/40 to-transparent" />
           {steps.map((step, i) => (
-            <Reveal key={step.index} delayMs={i * 70}>
+            <Reveal key={step.index} delayMs={i * 70} from="left">
               <li className="group relative flex gap-6 pb-10 last:pb-0">
-                <span className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/50 bg-charcoal font-display text-sm text-accent transition-colors group-hover:bg-accent group-hover:text-accent-ink">
+                <span className="pop relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/50 bg-charcoal font-display text-sm text-accent transition-colors group-hover:bg-accent group-hover:text-accent-ink">
                   {step.index}
                 </span>
                 <div className="pt-2.5">
                   <h2 className="font-display text-2xl font-medium tracking-tight text-paper">
                     {step.title}
                   </h2>
-                  <p className="mt-2 max-w-xl text-base leading-relaxed text-paper/60">{step.description}</p>
+                  <p className="mt-2 max-w-xl text-base leading-relaxed text-white">{step.description}</p>
                 </div>
               </li>
             </Reveal>
@@ -97,14 +97,14 @@ export default function HowItWorks() {
 
         <Reveal delayMs={240}>
           <div className="mt-16 grid grid-cols-1 gap-6 border-t border-line-dark pt-10 md:grid-cols-2">
-            <p className="text-base leading-relaxed text-paper/60">
+            <p className="text-base leading-relaxed text-white">
               <span className="font-medium text-paper">Already traded?</span> Check your
               transaction&apos;s status with the ID the bot gave you.{" "}
               <Link href="/track" className="border-b border-paper/40 pb-0.5 text-paper hover:border-accent hover:text-accent">
                 Track your transaction
               </Link>
             </p>
-            <p className="text-base leading-relaxed text-paper/60">
+            <p className="text-base leading-relaxed text-white">
               <span className="font-medium text-paper">Need help?</span> Our support team is on
               WhatsApp for questions and transaction issues.{" "}
               <Link

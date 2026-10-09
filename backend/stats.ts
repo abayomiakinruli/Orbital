@@ -35,14 +35,33 @@ const one = (sql: string, ...params: (string | number)[]) =>
 const all = (sql: string, ...params: (string | number)[]) =>
   getDb().prepare(sql).all(...params) as Row[];
 
-export type Period = "24h" | "7d" | "30d" | "1y";
+export type Period = "24h" | "7d" | "30d" | "1y" | "all";
 
 const PERIOD_WINDOW: Record<Period, string> = {
   "24h": "-24 hours",
   "7d": "-7 days",
   "30d": "-30 days",
   "1y": "-1 year",
+  // "All time": a window that starts long before anything was recorded.
+  all: "-100 years",
 };
+
+// How many days the "All" view's daily charts need to cover: from the first
+// account, trade or website visit to today (at least one day; capped at ten
+// years so a stray bad date can't build an enormous chart).
+export function daysSinceFirstRecord(): number {
+  const row = one(
+    `SELECT MIN(d) AS first FROM (
+       SELECT MIN(date(created_at)) AS d FROM accounts
+       UNION ALL SELECT MIN(date(created_at)) FROM trades
+       UNION ALL SELECT MIN(date(created_at)) FROM events
+     )`,
+  );
+  if (!row.first) return 1;
+  const first = new Date(`${row.first}T00:00:00Z`).getTime();
+  const days = Math.floor((Date.now() - first) / 86_400_000) + 1;
+  return Math.min(Math.max(days, 1), 3650);
+}
 
 function windowFor(period: Period) {
   return PERIOD_WINDOW[period];
@@ -239,14 +258,23 @@ export function listTrades(limit: number): TradeRow[] {
 export function listAccounts(limit: number): (AccountRow & {
   trade_count: number;
   volume: number;
+  saved_bank_count: number;
+  saved_wallet_count: number;
 })[] {
   return all(
     `SELECT a.*, COUNT(t.id) AS trade_count,
-            COALESCE(SUM(CASE WHEN t.status = 'successful' THEN t.fiat_amount END), 0) AS volume
+            COALESCE(SUM(CASE WHEN t.status = 'successful' THEN t.fiat_amount END), 0) AS volume,
+            (SELECT COUNT(*) FROM customer_bank_accounts b WHERE b.customer_id = a.id) AS saved_bank_count,
+            (SELECT COUNT(*) FROM customer_wallet_addresses w WHERE w.customer_id = a.id) AS saved_wallet_count
      FROM accounts a LEFT JOIN trades t ON t.account_id = a.id
      GROUP BY a.id ORDER BY a.id DESC LIMIT ?`,
     limit,
-  ) as unknown as (AccountRow & { trade_count: number; volume: number })[];
+  ) as unknown as (AccountRow & {
+    trade_count: number;
+    volume: number;
+    saved_bank_count: number;
+    saved_wallet_count: number;
+  })[];
 }
 
 export function accountOptions() {

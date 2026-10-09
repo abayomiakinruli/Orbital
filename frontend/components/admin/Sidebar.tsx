@@ -60,6 +60,24 @@ const ICONS: Record<string, React.ReactNode> = {
       />
     </svg>
   ),
+  Margins: (
+    <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
+      <path d="M15.5 4.5 4.5 15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="6" cy="6" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="14" cy="14" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  ),
+  "Bug reports": (
+    <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
+      <rect x="6" y="6" width="8" height="11" rx="4" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M7.5 6.5 6 4m6.5 2.5L14 4M6 10H3m14 0h-3M6 14H3.5m13 0H14M10 9v8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
   Announcements: (
     <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
       <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5" />

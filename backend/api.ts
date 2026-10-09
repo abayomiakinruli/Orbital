@@ -20,8 +20,15 @@ export async function botHandler(
     touchBot();
     return Response.json(run(body));
   } catch (error) {
-    if (error instanceof ValidationError) {
-      return Response.json({ error: error.message }, { status: 400 });
+    const isValidationError = error instanceof ValidationError || (
+      typeof error === "object" && error !== null &&
+      "name" in error && error.name === "ValidationError"
+    );
+    if (isValidationError) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "Invalid input" },
+        { status: 400 },
+      );
     }
     throw error;
   }

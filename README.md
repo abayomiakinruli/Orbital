@@ -34,6 +34,22 @@ The admin panel is at `/admin` (password: `ADMIN_PASSWORD` in `.env.local`).
 
 The worker takes the USDT/NGN reference from Bybit P2P, multiplies by each coin's USDT price, and applies the margin settings (regular or bulk, set in `.env.local` or the admin). A quote is valid for 60 seconds; a seller's rate is held for 15 minutes while they send their crypto. Rates older than 30 minutes are never shown or quoted. See `backend/rateEngine.ts` and `app/api/bot/quote/route.ts`.
 
+The worker is the only process that contacts Bybit for pricing. It uses a 15-second request timeout, up to three attempts with exponential backoff (and `Retry-After` for HTTP 429), and a SQLite lease to prevent overlapping scheduled or manual refreshes. Quotes, the website, and the Telegram bot read the same stored snapshot; a failed refresh never replaces a verified rate.
+
+## Rate API and operations
+
+- `GET /api/rates` is a public, rate-limited read of current processed ORBITAL rates. It returns only fresh rates, plus `updatedAt`; it never returns raw Bybit data.
+- `GET /api/bot/rate` and `GET /api/bot/quote` require `Authorization: Bearer $BOT_API_KEY`. They read the same SQLite snapshot. A quote is persisted with an expiry; sell-rate holds use `SELL_RATE_LOCK_SECONDS`.
+- `/admin/rates` is protected by the admin session. It shows the latest success, the last failed refresh, margins, and has **Refresh rates now**. Manual refreshes use the same database lease as the worker.
+
+For automatic pricing, create a Bybit API key with the P2P permissions required for an eligible P2P advertiser. Bybit restricts its P2P Open API to advertiser accounts; without that access, keep rates manual rather than substituting an unrelated market price. `BYBIT_BASE_URL` may be `https://api.bybit.com` or Bybit's supported `https://api.bytick.com` alternative. Set `BYBIT_REQUEST_TIMEOUT_MS`, `BYBIT_MAX_ATTEMPTS`, and `RATE_REFRESH_LOCK_SECONDS` only when the defaults do not fit the deployment.
+
+Run the mocked integration tests with:
+
+```bash
+npm test
+```
+
 ## Project layout
 
 The code is split into a frontend and a backend, with the Next.js routes in between:

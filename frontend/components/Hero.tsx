@@ -25,7 +25,7 @@ export default function Hero() {
       <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-16 px-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8 lg:px-10">
         <div>
           <div className="hero-fade" style={{ animationDelay: "0ms" }}>
-            <p className="font-display text-xs font-medium tracking-[0.3em] text-paper/50 uppercase">
+            <p className="font-display text-xs font-medium tracking-[0.3em] text-white uppercase">
               Digital Asset Trading
             </p>
           </div>
@@ -43,7 +43,7 @@ export default function Hero() {
           </h1>
 
           <div className="hero-fade mt-8 max-w-md" style={{ animationDelay: "420ms" }}>
-            <p className="text-lg leading-relaxed text-paper/70">
+            <p className="text-lg leading-relaxed text-white">
               Buy and sell BTC, USDT, USDC and SOL at clear naira rates, through a
               fast Telegram bot, with real people on WhatsApp behind it.
             </p>

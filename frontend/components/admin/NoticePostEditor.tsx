@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type SubmitEvent } from "react";
 import { useRouter } from "next/navigation";
 import { inputClass } from "@/frontend/components/admin/ui";
 
@@ -40,7 +40,7 @@ export default function NoticePostEditor({ post }: { post?: EditablePost }) {
     if (input) input.value = "";
   }
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const body = new FormData(e.currentTarget);
     if (removeImage) body.set("removeImage", "1");

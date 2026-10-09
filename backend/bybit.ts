@@ -22,9 +22,200 @@ import { createHmac } from "node:crypto";
 // with no P2P NGN market at all just comes back with no ads (median() →
 // null) rather than a wrong number.
 
-const BASE_URL = process.env.BYBIT_BASE_URL ?? "https://api.bybit.com";
 const RECV_WINDOW = "5000";
 const CURRENCY = "NGN";
+
+// These defaults deliberately live here rather than at each call site so the
+// P2P and public-market requests behave the same way. They are overrideable
+// for a deployment with a known network constraint, but bounded to avoid a
+// bad environment value turning a failed refresh into a permanently stuck one.
+function boundedEnvNumber(name: string, fallback: number, min: number, max: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= min && value <= max ? Math.floor(value) : fallback;
+}
+
+// Bybit serves the same API from two official hostnames. Some networks (and
+// some hosting regions) can reach only one of them, which shows up as every
+// request timing out, so the other is tried automatically.
+const BYBIT_HOSTS = ["https://api.bybit.com", "https://api.bytick.com"];
+
+function httpsOrigin(value: string, name: string): string {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:") throw new Error("not HTTPS");
+    return parsed.origin;
+  } catch {
+    throw new BybitRequestError("configuration", `${name} must be an HTTPS URL`);
+  }
+}
+
+// The configured host first, then a fallback: BYBIT_FALLBACK_BASE_URL if set
+// ("off" disables falling back), otherwise Bybit's other official hostname.
+function baseUrls(): string[] {
+  const primary = httpsOrigin(process.env.BYBIT_BASE_URL ?? BYBIT_HOSTS[0], "BYBIT_BASE_URL");
+  const configured = process.env.BYBIT_FALLBACK_BASE_URL?.trim();
+  if (configured?.toLowerCase() === "off") return [primary];
+  const fallbacks = configured
+    ? [httpsOrigin(configured, "BYBIT_FALLBACK_BASE_URL")]
+    : BYBIT_HOSTS.filter((host) => host !== primary);
+  return [primary, ...fallbacks.filter((host) => host !== primary)];
+}
+
+// The host that last answered, so a process that had to fall back does not
+// pay for the unreachable host's timeout again on every later call.
+let preferredHost: string | null = null;
+
+function unreachable(error: BybitRequestError): boolean {
+  return error.kind === "connection" || error.kind === "dns" || error.kind === "timeout";
+}
+
+export type BybitErrorKind =
+  | "configuration"
+  | "connection"
+  | "dns"
+  | "timeout"
+  | "http"
+  | "rate_limit"
+  | "api"
+  | "invalid_response";
+
+export class BybitRequestError extends Error {
+  constructor(
+    readonly kind: BybitErrorKind,
+    message: string,
+    readonly status?: number,
+    readonly retryAfterMs?: number,
+  ) {
+    super(message);
+    this.name = "BybitRequestError";
+  }
+}
+
+type BybitEnvelope = { retCode?: number; ret_code?: number; retMsg?: string; ret_msg?: string };
+type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+function retryAfterMs(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, 60_000);
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? Math.min(Math.max(time - Date.now(), 0), 60_000) : undefined;
+}
+
+function requestErrorFromCause(error: unknown): BybitRequestError {
+  if (error instanceof BybitRequestError) return error;
+  const named = error as { name?: string; message?: string; cause?: { code?: string } };
+  if (named.name === "TimeoutError" || named.name === "AbortError") {
+    return new BybitRequestError("timeout", "Bybit request timed out");
+  }
+  const code = named.cause?.code ?? "";
+  if (["ENOTFOUND", "EAI_AGAIN"].includes(code)) {
+    return new BybitRequestError("dns", "Bybit hostname could not be resolved");
+  }
+  return new BybitRequestError("connection", "Could not connect to Bybit");
+}
+
+function retryable(error: BybitRequestError): boolean {
+  return (
+    error.kind === "connection" ||
+    error.kind === "dns" ||
+    error.kind === "timeout" ||
+    error.kind === "rate_limit" ||
+    error.kind === "invalid_response" ||
+    (error.kind === "http" && (error.status === 408 || error.status === 425 || (error.status ?? 0) >= 500))
+  );
+}
+
+function delayFor(error: BybitRequestError, attempt: number): number {
+  // 500ms, 1s (with a small cap) unless Bybit explicitly tells us to wait.
+  return error.retryAfterMs ?? Math.min(500 * 2 ** (attempt - 1), 10_000);
+}
+
+// A rate-limited call is only worth repeating when Bybit says the limit
+// resets within a few seconds. Retrying blind just adds more visits to a
+// window that is already over its limit and keeps the block going, so
+// otherwise the call fails and the next scheduled refresh tries again.
+const MAX_RATE_LIMIT_WAIT_MS = 10_000;
+
+function worthRetrying(error: BybitRequestError): boolean {
+  if (error.kind !== "rate_limit") return true;
+  return error.retryAfterMs !== undefined && error.retryAfterMs <= MAX_RATE_LIMIT_WAIT_MS;
+}
+
+// Bybit's V5 API reports when the current rate-limit window resets as an
+// epoch-milliseconds header, including on a retCode 10006 response.
+function limitResetMs(value: string | null): number | undefined {
+  const resetAt = Number(value);
+  if (!value || !Number.isFinite(resetAt) || resetAt <= 0) return undefined;
+  return Math.min(Math.max(resetAt - Date.now(), 0), 60_000);
+}
+
+// One bounded transport for every Bybit call. It validates the HTTP result,
+// V5/P2P `retCode`, JSON shape, timeout, and retries transient failures only.
+// It intentionally never logs request headers or bodies: those contain a
+// signature and must not end up in deployment logs.
+export async function requestBybitJson<T extends BybitEnvelope>(
+  path: string,
+  init: RequestInit = {},
+  fetchImpl: FetchLike = fetch,
+): Promise<T> {
+  const attempts = boundedEnvNumber("BYBIT_MAX_ATTEMPTS", 3, 1, 3);
+  const timeoutMs = boundedEnvNumber("BYBIT_REQUEST_TIMEOUT_MS", 15_000, 1_000, 60_000);
+  const hosts = baseUrls();
+  let hostIndex = Math.max(0, preferredHost ? hosts.indexOf(preferredHost) : 0);
+  let lastError: BybitRequestError | null = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const host = hosts[hostIndex];
+    try {
+      const response = await fetchImpl(`${host}${path}`, {
+        ...init,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      const raw = await response.text();
+      if (!response.ok) {
+        throw new BybitRequestError(
+          response.status === 429 ? "rate_limit" : "http",
+          `Bybit HTTP ${response.status}`,
+          response.status,
+          retryAfterMs(response.headers.get("retry-after")),
+        );
+      }
+      let parsed: T;
+      try {
+        parsed = JSON.parse(raw) as T;
+      } catch {
+        throw new BybitRequestError("invalid_response", "Bybit returned invalid JSON");
+      }
+      if (!parsed || typeof parsed !== "object") {
+        throw new BybitRequestError("invalid_response", "Bybit returned an invalid response shape");
+      }
+      const code = parsed.retCode ?? parsed.ret_code;
+      if (code !== undefined && code !== 0) {
+        const message = parsed.retMsg ?? parsed.ret_msg ?? "unknown API error";
+        throw new BybitRequestError(
+          code === 10006 ? "rate_limit" : "api",
+          `Bybit API ${code}: ${message}`,
+          undefined,
+          code === 10006 ? limitResetMs(response.headers.get("x-bapi-limit-reset-timestamp")) : undefined,
+        );
+      }
+      preferredHost = host;
+      return parsed;
+    } catch (cause) {
+      const error = requestErrorFromCause(cause);
+      lastError = error;
+      if (!retryable(error) || !worthRetrying(error) || attempt === attempts) break;
+      if (unreachable(error) && hosts.length > 1) {
+        // This host can't be reached from here: go straight to the other one.
+        hostIndex = (hostIndex + 1) % hosts.length;
+        continue;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayFor(error, attempt)));
+    }
+  }
+  throw lastError ?? new BybitRequestError("connection", "Bybit request failed");
+}
 
 export function bybitConfigured(): boolean {
   return Boolean(process.env.BYBIT_API_KEY && process.env.BYBIT_API_SECRET);
@@ -56,7 +247,13 @@ async function fetchAds(token: string, kind: "ask" | "bid"): Promise<number[]> {
     .update(timestamp + key + RECV_WINDOW + body)
     .digest("hex");
 
-  const res = await fetch(`${BASE_URL}/v5/p2p/item/online`, {
+  const parsed = await requestBybitJson<{
+    retCode?: number;
+    ret_code?: number;
+    retMsg?: string;
+    ret_msg?: string;
+    result?: { items?: { price?: string; isOnline?: boolean }[] };
+  }>("/v5/p2p/item/online", {
     method: "POST",
     headers: {
       "X-BAPI-API-KEY": key,
@@ -67,27 +264,7 @@ async function fetchAds(token: string, kind: "ask" | "bid"): Promise<number[]> {
       "Content-Type": "application/json",
     },
     body,
-    signal: AbortSignal.timeout(8000),
   });
-
-  const text = await res.text();
-  let parsed: {
-    retCode?: number;
-    ret_code?: number;
-    retMsg?: string;
-    ret_msg?: string;
-    result?: { items?: { price?: string; isOnline?: boolean }[] };
-  };
-  try {
-    parsed = text ? JSON.parse(text) : {};
-  } catch {
-    throw new Error(`Bybit returned non-JSON (HTTP ${res.status}): ${text.slice(0, 200)}`);
-  }
-  const code = parsed.retCode ?? parsed.ret_code;
-  const msg = parsed.retMsg ?? parsed.ret_msg;
-  if (!res.ok || (code !== undefined && code !== 0)) {
-    throw new Error(`Bybit error ${code ?? res.status}: ${msg ?? res.statusText}`);
-  }
   return (parsed.result?.items ?? [])
     .filter((it) => it.isOnline !== false)
     .map((it) => Number(it.price))
@@ -110,19 +287,10 @@ function median(values: number[]): number | null {
 // the one rate that has no public spot equivalent (NGN isn't a spot pair).
 export async function getSpotTicker(symbol: string): Promise<number | null> {
   try {
-    const url = `${BASE_URL}/v5/market/tickers?category=spot&symbol=${symbol}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    const text = await res.text();
-    let parsed: {
+    const parsed = await requestBybitJson<{
       retCode?: number;
       result?: { list?: { lastPrice?: string }[] };
-    };
-    try {
-      parsed = text ? JSON.parse(text) : {};
-    } catch {
-      return null;
-    }
-    if (!res.ok || (parsed.retCode !== undefined && parsed.retCode !== 0)) return null;
+    }>(`/v5/market/tickers?category=spot&symbol=${encodeURIComponent(symbol.toUpperCase())}`);
     const price = Number(parsed.result?.list?.[0]?.lastPrice);
     return Number.isFinite(price) && price > 0 ? price : null;
   } catch {
@@ -141,24 +309,14 @@ export async function getSpotKlines(
   limit: number,
 ): Promise<Candle[] | null> {
   try {
-    const url = `${BASE_URL}/v5/market/kline?category=spot&symbol=${symbol}&interval=${interval}&limit=${limit}`;
-    // Shorter timeout than the P2P calls above: this only feeds a
-    // supplementary dashboard chart (see MarketPrices' Suspense boundary
-    // in app/admin/(panel)/page.tsx), so failing fast matters more than
-    // patience.
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    const text = await res.text();
-    let parsed: {
+    const parsed = await requestBybitJson<{
       retCode?: number;
       retMsg?: string;
       result?: { list?: string[][] };
-    };
-    try {
-      parsed = text ? JSON.parse(text) : {};
-    } catch {
-      return null;
-    }
-    if (!res.ok || (parsed.retCode !== undefined && parsed.retCode !== 0)) return null;
+    }>(
+      `/v5/market/kline?category=spot&symbol=${encodeURIComponent(symbol.toUpperCase())}` +
+        `&interval=${encodeURIComponent(interval)}&limit=${encodeURIComponent(String(limit))}`,
+    );
     const rows = parsed.result?.list ?? [];
     if (rows.length === 0) return null;
     // Bybit returns newest-first: [start, open, high, low, close, volume, turnover]
@@ -178,7 +336,10 @@ export type BybitReference = { buy: number; sell: number } | null;
 // This is the MARKET reference, not ORBITAL's rate — the caller applies
 // its own margin on top (see backend/repo.ts's getEffectiveRate).
 export async function getBybitReference(token: string): Promise<BybitReference> {
-  const [asks, bids] = await Promise.all([fetchAds(token, "ask"), fetchAds(token, "bid")]);
+  // One after the other, not in parallel: the P2P API's rate limit is tight,
+  // and two simultaneous calls count as a burst.
+  const asks = await fetchAds(token, "ask");
+  const bids = await fetchAds(token, "bid");
   const buy = median(asks);
   const sell = median(bids);
   if (buy === null || sell === null) return null;

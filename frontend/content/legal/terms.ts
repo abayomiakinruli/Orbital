@@ -10,7 +10,7 @@ import { orbitalConfig } from "@/config/orbital";
 const BOT = orbitalConfig.telegramHandle;
 const WA = orbitalConfig.whatsappDisplay;
 
-export const TERMS_UPDATED = "27 September 2026";
+export const TERMS_UPDATED = "9 October 2026";
 
 export const termsIntro = [
   `These Terms of Service ("Terms") govern your access to and use of ORBITAL, including the ORBITAL website, the ORBITAL Telegram trading bot (${BOT}), ORBITAL customer support on WhatsApp (${WA}), and every trade, quote, payment and communication made through them.`,
@@ -205,10 +205,10 @@ export const termsSections: LegalSection[] = [
     ],
   },
   {
-    heading: "Minimum and Maximum Transaction Limits",
+    heading: "Transaction Limits",
     body: [
-      "Each Trade must be worth at least ₦5,000 and no more than ₦50,000,000, calculated at the Rate quoted for the Trade. The Bot will not accept a Trade outside these limits.",
-      "ORBITAL may change these limits at any time, set different limits for different Digital Assets or customers, or set daily or other cumulative limits, including where verification (section 31) has not been completed. The limits shown by the Bot at the time of your Trade apply.",
+      "Each Trade must be worth at least ₦5,000, calculated at the Rate quoted for the Trade. The Bot will not accept a smaller Trade. ORBITAL does not currently set a maximum Trade size.",
+      "ORBITAL may change these limits at any time, introduce a maximum, set different limits for different Digital Assets or customers, or set daily or other cumulative limits, including where verification (section 31) has not been completed. The limits shown by the Bot at the time of your Trade apply.",
       "Splitting one Trade into several smaller Trades to avoid a limit or verification requirement is not allowed and may lead to the Trades being paused or cancelled.",
     ],
   },

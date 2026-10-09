@@ -8,6 +8,14 @@ export type Check = { ok: true; value: string } | { ok: false; error: string };
 
 const BASE58 = "[1-9A-HJ-NP-Za-km-z]";
 
+export function checkPreferredName(input: string): Check {
+  const value = input.trim().replace(/\s+/g, " ");
+  if (!/^\p{L}[\p{L}\p{M} .'-]{0,59}$/u.test(value)) {
+    return { ok: false, error: "Please send a name using letters, spaces, apostrophes, or hyphens (up to 60 characters)." };
+  }
+  return { ok: true, value };
+}
+
 type AddressKind = "bitcoin" | "evm" | "tron" | "solana" | "generic";
 
 const ADDRESS_RULES: Record<AddressKind, { pattern: RegExp; hint: string }> = {

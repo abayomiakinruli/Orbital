@@ -65,8 +65,29 @@ export function isBotRequest(request: Request): boolean {
   return header.startsWith("Bearer ") && safeEqual(header.slice(7), key);
 }
 
+// The caller's IP, as the key for the limiters below. Read from
+// X-Forwarded-For, which the reverse proxy overwrites with the real address
+// (see .claude/DEPLOY.md); "local" when there is no proxy in front.
+export function clientIp(headers: Headers): string {
+  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+}
+
+type Window = { count: number; resetAt: number };
+
+// Both limiters below keep one entry per key (usually an IP). Expired entries
+// are cleared once a map gets large, so a stream of requests from many
+// addresses can't grow the server's memory without bound.
+const MAX_TRACKED_KEYS = 10_000;
+
+function prune(map: Map<string, Window>, now: number) {
+  if (map.size < MAX_TRACKED_KEYS) return;
+  for (const [key, entry] of map) {
+    if (entry.resetAt <= now) map.delete(key);
+  }
+}
+
 // Tiny in-memory limiter for login attempts: 5 failures per 15 minutes per key.
-const attempts = new Map<string, { count: number; resetAt: number }>();
+const attempts = new Map<string, Window>();
 
 export function loginBlocked(key: string): boolean {
   const entry = attempts.get(key);
@@ -78,8 +99,28 @@ export function recordLoginFailure(key: string) {
   const now = Date.now();
   const entry = attempts.get(key);
   if (!entry || entry.resetAt < now) {
+    prune(attempts, now);
     attempts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
   } else {
     entry.count += 1;
   }
+}
+
+// Lightweight per-process limiter for public read endpoints. Deployments with
+// multiple web instances should enforce the same policy at the reverse proxy;
+// this still prevents one process from being used as an unbounded database
+// polling proxy. `key` must include an endpoint namespace.
+const requestWindows = new Map<string, Window>();
+
+export function requestAllowed(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const current = requestWindows.get(key);
+  if (!current || current.resetAt <= now) {
+    prune(requestWindows, now);
+    requestWindows.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (current.count >= limit) return false;
+  current.count += 1;
+  return true;
 }

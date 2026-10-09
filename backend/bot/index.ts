@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from "grammy";
+import { Bot, InlineKeyboard, type Context } from "grammy";
 import { orbitalConfig } from "../../config/orbital";
 import { tradeOutcomeMessage } from "../tradeMessages";
 import {
@@ -6,9 +6,12 @@ import {
   checkAccountNumber,
   checkBankName,
   checkCoinAmount,
+  checkPreferredName,
   checkTransactionId,
   checkWalletAddress,
 } from "../validate";
+import { dbTime } from "../../shared/format";
+import { escapeHtml as esc } from "../telegram";
 
 // ORBITAL trading bot — the primary trading interface (the website only
 // links here). The bot holds no pricing or business logic of its own: every
@@ -16,26 +19,31 @@ import {
 // from the backend API, which is the single source of truth shared with the
 // admin dashboard and the website.
 
-const token = process.env.TELEGRAM_BOT_TOKEN;
-const apiKey = process.env.BOT_API_KEY;
+const token = process.env.TELEGRAM_BOT_TOKEN ?? "test-token";
+const apiKey = process.env.BOT_API_KEY ?? "";
 const apiBase = process.env.API_BASE_URL ?? "http://localhost:3000";
 const staffIds = (process.env.STAFF_CHAT_IDS ?? "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
-if (!token) throw new Error("TELEGRAM_BOT_TOKEN is not set (get one from @BotFather)");
-if (!apiKey) throw new Error("BOT_API_KEY is not set");
+if (!process.env.TELEGRAM_BOT_TOKEN) {
+  console.warn("TELEGRAM_BOT_TOKEN is not set (get one from @BotFather) — bot startup is disabled for this environment.");
+}
+if (!process.env.BOT_API_KEY) {
+  console.warn("BOT_API_KEY is not set — the ORBITAL bot is disabled for this environment.");
+}
 if (staffIds.length === 0) {
   console.warn("STAFF_CHAT_IDS is empty: trade alerts will not reach anyone.");
 }
 
 const bot = new Bot(token);
+// The smallest trade ORBITAL takes. There is deliberately no upper limit.
 const MIN_NGN = 5_000;
-const MAX_NGN = 50_000_000;
 // Independent of customer activity, so the admin dashboard's online/offline
 // indicator reflects the bot process itself. See app/api/bot/ping/route.ts.
-const HEARTBEAT_MS = 30_000;
+// backend/supervisor.ts also reads it to tell whether a bot is running.
+const HEARTBEAT_MS = 10_000;
 
 async function api(path: string, method: "POST" | "PATCH", body: unknown) {
   const res = await fetch(`${apiBase}${path}`, {
@@ -57,13 +65,18 @@ async function getApi(path: string) {
   return data;
 }
 
-const esc = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-const naira = (n: number) =>
-  `₦${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-// Every Naira amount a customer sees or pays is rounded to the nearest 100 —
-// no kobo anywhere.
-const roundNaira = (n: number) => Math.round(n / 100) * 100;
+// ₦13,875.50, or ₦14,000 when there's no kobo.
+const naira = (n: number) => {
+  const digits = Math.round(n * 100) % 100 === 0 ? 0 : 2;
+  return `₦${n.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+};
+// Every Naira amount a customer sees or pays is the exact coin amount × rate,
+// to the kobo — no rounding to a round figure. (Math.round only strips
+// floating-point noise below a kobo.)
+const exactNaira = (n: number) => Math.round(n * 100) / 100;
+// Told to a customer whose amount comes to less than the smallest trade.
+const belowMinimum = (value: number) =>
+  `That works out to ${naira(value)}, which is below our minimum of ${naira(MIN_NGN)}. Please enter a larger amount.`;
 
 // --- Backend reads (assets, rates, payment account, addresses) -------------
 // Never hard-coded and never trusted from a customer's message — the bot
@@ -144,6 +157,7 @@ async function rateMessage(): Promise<string> {
 // trusted as final — the backend recalculates and validates on submit.
 
 type Step =
+  | "preferredName"
   | "buyAmount"
   | "buyAddress"
   | "sellCoin"
@@ -169,10 +183,16 @@ type Draft = {
   quoteId?: string | null; // the informational quote taken at asset-selection time
   quoteExpiresAt?: string | null;
   sellRateLockedUntil?: number; // ms; the locked sell rate is honoured until then
+  awaitingTerms?: boolean; // the Terms of Service prompt is showing; cleared on the first Accept
   step: Step;
   trackedTradeId?: number;
   trackedAccountId?: number;
   trackedTransactionId?: string;
+  savedBanks?: CustomerBank[];
+  savedAddresses?: CustomerAddress[]; // the customer's saved receiving addresses for the current buy
+  bankFromSaved?: boolean; // the bank account in use was picked from the saved list
+  addressFromSaved?: boolean; // the receiving address in use was picked from the saved list
+  renaming?: boolean; // the next name entered is a rename, not first-time setup
 };
 const drafts = new Map<number, Draft>();
 const draftFor = (id: number) => {
@@ -184,7 +204,9 @@ const draftFor = (id: number) => {
   return d;
 };
 
-const mainMenu = () =>
+// One main menu for every customer, new or returning:
+// Trade, Rate, Track ID, View profile, Customer Support.
+export const mainMenuKeyboard = () =>
   new InlineKeyboard()
     .text("Trade", "trade")
     .row()
@@ -192,9 +214,38 @@ const mainMenu = () =>
     .row()
     .text("Track ID", "track")
     .row()
+    .text("View profile", "profile")
+    .row()
     .url("Customer Support", orbitalConfig.whatsapp);
 
+// Kept as aliases so existing imports keep working.
+export const newUserMenu = mainMenuKeyboard;
+export const returningCustomerMenu = mainMenuKeyboard;
+
+// Buttons under the profile: Edit details, Customer Support, Back.
+export const profileKeyboard = () =>
+  new InlineKeyboard()
+    .text("Edit details", "profileEdit")
+    .row()
+    .url("Customer Support", orbitalConfig.whatsapp)
+    .row()
+    .text("Back", "mainMenu");
+
+export const editDetailsMenu = () =>
+  new InlineKeyboard()
+    .text("Change my name", "settingsName")
+    .row()
+    .text("Remove a bank account", "editBanks")
+    .row()
+    .text("Remove an address", "editAddresses")
+    .row()
+    .text("Back", "profile");
+export const settingsMenu = editDetailsMenu;
+
 type TelegramUser = { id: number; username?: string; first_name: string; last_name?: string };
+type CustomerAccount = { id: number; preferred_name: string | null; terms_accepted_at: string | null };
+type CustomerBank = { id: number; accountName: string; accountNumber: string; bankName: string; lastFour: string; isDefault: boolean };
+type CustomerAddress = { id: number; asset: string; network: string | null; address: string };
 
 function who(from: { id: number; username?: string; first_name: string }): string {
   return from.username
@@ -202,26 +253,253 @@ function who(from: { id: number; username?: string; first_name: string }): strin
     : `<a href="tg://user?id=${from.id}">${esc(from.first_name)}</a> (ID: ${from.id})`;
 }
 
+async function customerApi(from: TelegramUser, action: string, values: Record<string, unknown> = {}) {
+  return api("/api/bot/customer", "POST", { action, telegram_id: from.id, ...values });
+}
+async function lookupCustomer(from: TelegramUser): Promise<CustomerAccount | null> {
+  const data = await customerApi(from, "lookup");
+  return (data.account as CustomerAccount | null) ?? null;
+}
 async function registerAccount(from: TelegramUser) {
-  try {
-    await api("/api/bot/accounts", "POST", {
-      telegram_id: from.id,
-      username: from.username,
-      full_name: [from.first_name, from.last_name].filter(Boolean).join(" "),
-    });
-  } catch (e) {
-    console.error("Could not register account:", e);
-  }
+  const data = await customerApi(from, "register", {
+    username: from.username,
+    full_name: [from.first_name, from.last_name].filter(Boolean).join(" "),
+  });
+  return data.account as CustomerAccount;
 }
 
 bot.command("start", async (ctx) => {
   const from = ctx.from;
   if (!from) return;
   drafts.delete(from.id);
-  await registerAccount(from);
-  await ctx.reply("Hello, welcome to orbital trading bot. What would you like to do?", {
-    reply_markup: mainMenu(),
+  let customer: CustomerAccount | null = null;
+  try {
+    customer = await lookupCustomer(from);
+  } catch (e) {
+    console.error("Could not look up customer:", e);
+    return ctx.reply("I can’t connect to ORBITAL right now. Please try again shortly.");
+  }
+  if (!customer) {
+    try {
+      await registerAccount(from);
+    } catch (e) {
+      console.error("Could not register customer:", e);
+      return ctx.reply("I couldn’t set up your account right now. Please try /start again shortly.");
+    }
+    const draft = draftFor(from.id); draft.step = "preferredName";
+    return ctx.reply("Welcome to ORBITAL! We’re glad to have you here. Before we proceed, what would you like us to call you?");
+  }
+  if (!customer.preferred_name) {
+    const draft = draftFor(from.id); draft.step = "preferredName";
+    return ctx.reply("Welcome to ORBITAL! What would you like us to call you?");
+  }
+  await ctx.reply(`Welcome back, ${esc(customer.preferred_name)}! Good to have you back with ORBITAL. What would you like to do?`, {
+    reply_markup: returningCustomerMenu(),
   });
+});
+
+bot.callbackQuery("mainMenu", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  let customer: CustomerAccount | null;
+  try {
+    customer = await lookupCustomer(ctx.from);
+  } catch (e) {
+    console.error("Could not load customer menu:", e);
+    return ctx.editMessageText("I can’t connect to ORBITAL right now. Please try again shortly.");
+  }
+  if (!customer?.preferred_name) {
+    const draft = draftFor(ctx.from.id);
+    draft.step = "preferredName";
+    await ctx.editMessageText("Before we continue, what would you like us to call you?");
+    return;
+  }
+  await ctx.editMessageText(`Welcome back, ${esc(customer.preferred_name)}! Good to have you back with ORBITAL. What would you like to do?`, {
+    reply_markup: returningCustomerMenu(),
+  });
+});
+
+// --- Profile ---------------------------------------------------------------
+// Everything on the profile comes from the backend: the customer's name, how
+// many trades they've placed, and every bank account and receiving address
+// they've used in a trade (saved automatically once a trade is placed — see
+// rememberUsedDetails).
+
+const MAX_LISTED = 10; // keeps the profile inside Telegram's message-size limit
+
+async function listBanks(from: TelegramUser): Promise<CustomerBank[]> {
+  const data = await customerApi(from, "listBanks");
+  return Array.isArray(data.banks) ? (data.banks as CustomerBank[]) : [];
+}
+async function listAddresses(
+  from: TelegramUser,
+  filter: { asset?: string; network?: string | null } = {},
+): Promise<CustomerAddress[]> {
+  const data = await customerApi(from, "listAddresses", filter);
+  return Array.isArray(data.addresses) ? (data.addresses as CustomerAddress[]) : [];
+}
+async function countTrades(from: TelegramUser): Promise<number> {
+  const data = await customerApi(from, "countTrades");
+  return Number(data.count ?? 0);
+}
+
+const shortAddress = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
+
+// Called once a trade has actually been placed, so the profile only ever holds
+// accounts and addresses the customer really used. Details picked from the
+// saved list are already stored. A failure here never affects the trade.
+async function rememberUsedDetails(from: TelegramUser, draft: Draft) {
+  try {
+    if (draft.side === "buy" && draft.asset && draft.address && !draft.addressFromSaved) {
+      await customerApi(from, "saveAddress", {
+        asset: draft.asset,
+        network: draft.network ?? null,
+        address: draft.address,
+      });
+    }
+    if (draft.side === "sell" && draft.accountName && draft.accountNumber && draft.bankName && !draft.bankFromSaved) {
+      await customerApi(from, "saveBank", {
+        accountName: draft.accountName,
+        accountNumber: draft.accountNumber,
+        bankName: draft.bankName,
+      });
+    }
+  } catch (e) {
+    console.error("Could not save trade details:", e instanceof Error ? e.message : e);
+  }
+}
+
+async function profileText(from: TelegramUser): Promise<string> {
+  const [customer, banks, addresses, tradeCount] = await Promise.all([
+    lookupCustomer(from),
+    listBanks(from),
+    listAddresses(from),
+    countTrades(from),
+  ]);
+
+  const accountBlocks = banks
+    .slice(0, MAX_LISTED)
+    .map(
+      (b, i) =>
+        `Account ${i + 1}\nBank: ${esc(b.bankName)}\nName: ${esc(b.accountName)}\nNumber: ${esc(b.accountNumber)}`,
+    );
+  const addressBlocks = addresses
+    .slice(0, MAX_LISTED)
+    .map(
+      (a, i) =>
+        `Address ${i + 1}\nAsset: ${esc(a.asset)}${a.network ? ` (${esc(a.network)})` : ""}\nAddress: <code>${esc(a.address)}</code>`,
+    );
+  const more = (total: number) => (total > MAX_LISTED ? `\n\n…and ${total - MAX_LISTED} more` : "");
+
+  return (
+    `YOUR PROFILE\n\n` +
+    `Name: ${esc(customer?.preferred_name ?? "Not set yet")}\n` +
+    `Trades: ${tradeCount}\n\n` +
+    `Accounts:\n${accountBlocks.length ? accountBlocks.join("\n\n") + more(banks.length) : "None yet"}\n\n` +
+    `Addresses:\n${addressBlocks.length ? addressBlocks.join("\n\n") + more(addresses.length) : "None yet"}`
+  );
+}
+
+bot.callbackQuery(/^(profile|settingsProfile)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  let text: string;
+  try {
+    text = await profileText(ctx.from);
+  } catch (e) {
+    console.error("Could not load customer profile:", e);
+    return ctx.editMessageText("I couldn’t load your profile right now. Please try again shortly.", {
+      reply_markup: new InlineKeyboard().text("Back", "mainMenu"),
+    });
+  }
+  await ctx.editMessageText(text, { parse_mode: "HTML", reply_markup: profileKeyboard() });
+});
+
+// --- Edit details ----------------------------------------------------------
+
+bot.callbackQuery("profileEdit", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.editMessageText("EDIT DETAILS\n\nWhat would you like to change?", { reply_markup: editDetailsMenu() });
+});
+
+bot.callbackQuery("settingsName", async (ctx) => {
+  const draft = draftFor(ctx.from.id);
+  draft.step = "preferredName";
+  draft.renaming = true;
+  await ctx.answerCallbackQuery();
+  await ctx.editMessageText("Send the name you’d like ORBITAL to use for you.");
+});
+
+async function showRemoveBanks(ctx: Context, from: TelegramUser) {
+  let banks: CustomerBank[];
+  try {
+    banks = await listBanks(from);
+  } catch (e) {
+    console.error("Could not list saved banks:", e);
+    return ctx.editMessageText("I couldn’t load your saved bank accounts right now. Please try again shortly.", {
+      reply_markup: editDetailsMenu(),
+    });
+  }
+  if (banks.length === 0) {
+    return ctx.editMessageText("You have no saved bank accounts.", { reply_markup: editDetailsMenu() });
+  }
+  const kb = new InlineKeyboard();
+  banks.forEach((b, i) => kb.text(`Account ${i + 1}: ${b.bankName} ****${b.lastFour}`, `delBank:${b.id}`).row());
+  kb.text("Back", "profileEdit");
+  return ctx.editMessageText("Tap a bank account to remove it.", { reply_markup: kb });
+}
+
+async function showRemoveAddresses(ctx: Context, from: TelegramUser) {
+  let addresses: CustomerAddress[];
+  try {
+    addresses = await listAddresses(from);
+  } catch (e) {
+    console.error("Could not list saved addresses:", e);
+    return ctx.editMessageText("I couldn’t load your saved addresses right now. Please try again shortly.", {
+      reply_markup: editDetailsMenu(),
+    });
+  }
+  if (addresses.length === 0) {
+    return ctx.editMessageText("You have no saved addresses.", { reply_markup: editDetailsMenu() });
+  }
+  const kb = new InlineKeyboard();
+  addresses.forEach((a, i) =>
+    kb.text(`Address ${i + 1}: ${a.asset} ${shortAddress(a.address)}`, `delAddr:${a.id}`).row(),
+  );
+  kb.text("Back", "profileEdit");
+  return ctx.editMessageText("Tap an address to remove it.", { reply_markup: kb });
+}
+
+bot.callbackQuery("editBanks", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await showRemoveBanks(ctx, ctx.from);
+});
+bot.callbackQuery("editAddresses", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await showRemoveAddresses(ctx, ctx.from);
+});
+
+bot.callbackQuery(/^delBank:(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  try {
+    await customerApi(ctx.from, "deleteBank", { bank_id: Number(ctx.match[1]) });
+  } catch (e) {
+    console.error("Could not remove bank account:", e instanceof Error ? e.message : e);
+    return ctx.editMessageText("Sorry, I couldn’t remove that account. Please try again shortly.", {
+      reply_markup: editDetailsMenu(),
+    });
+  }
+  await showRemoveBanks(ctx, ctx.from);
+});
+bot.callbackQuery(/^delAddr:(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  try {
+    await customerApi(ctx.from, "deleteAddress", { address_id: Number(ctx.match[1]) });
+  } catch (e) {
+    console.error("Could not remove address:", e instanceof Error ? e.message : e);
+    return ctx.editMessageText("Sorry, I couldn’t remove that address. Please try again shortly.", {
+      reply_markup: editDetailsMenu(),
+    });
+  }
+  await showRemoveAddresses(ctx, ctx.from);
 });
 
 bot.command("cancel", async (ctx) => {
@@ -309,9 +587,12 @@ bot.callbackQuery(/^asset:(\w+)$/, async (ctx) => {
       `Buy ${asset}\n\nRate: ${naira(quote.rate)} / ${asset}\n\nHow much ${asset} do you want to buy?`,
     );
   } else {
+    // Selling: the amount comes first. The rate is shown once we know how
+    // much is being sold (see the "sellCoin" step), since a large sale can be
+    // priced differently.
     draft.step = "sellCoin";
     await ctx.editMessageText(
-      `Sell ${asset}\n\nRate: ${naira(quote.rate)} / ${asset}\n\nHow much ${asset} do you want to sell?`,
+      `Sell ${asset}\n\nHow much ${asset} do you want to sell? Enter the amount in ${asset}, for example 50.`,
     );
   }
 });
@@ -334,6 +615,36 @@ bot.callbackQuery("abort", async (ctx) => {
   drafts.delete(ctx.from.id);
   await ctx.answerCallbackQuery();
   await ctx.editMessageText("Cancelled. Send /start to begin again.");
+});
+
+// Saved bank accounts as buttons, plus "Add New Bank Account".
+function bankChooser(banks: CustomerBank[]) {
+  const kb = new InlineKeyboard();
+  banks.forEach((bank) => {
+    kb.text(`${bank.bankName} – ****${bank.lastFour}${bank.isDefault ? " (default)" : ""}`, `bank:${bank.id}`).row();
+  });
+  return kb.text("Add New Bank Account", "bankNew");
+}
+
+bot.callbackQuery("bankNew", async (ctx) => {
+  const draft = draftFor(ctx.from.id);
+  draft.step = "sellAccountName";
+  draft.bankFromSaved = false;
+  await ctx.answerCallbackQuery();
+  await ctx.editMessageText("Please enter the account name exactly as your bank shows it.");
+});
+
+bot.callbackQuery(/^bank:(\d+)$/, async (ctx) => {
+  const draft = drafts.get(ctx.from.id);
+  const bank = draft?.savedBanks?.find((item) => item.id === Number(ctx.match[1]));
+  await ctx.answerCallbackQuery();
+  if (!draft || !bank) return ctx.editMessageText("That saved bank account is no longer available. Please add a new one.");
+  draft.accountName = bank.accountName;
+  draft.accountNumber = bank.accountNumber;
+  draft.bankName = bank.bankName;
+  draft.bankFromSaved = true;
+  draft.step = null;
+  await ctx.editMessageText(sellOrderSummary(draft), { reply_markup: sellSummaryKeyboard() });
 });
 
 // --- Buy: confirm -> network (if needed) -> address -> transaction created -
@@ -393,16 +704,23 @@ async function alertStaff(text: string, tradeId: number, customerId: number) {
   }
 }
 
+// "Trade" on the buy summary: the customer has checked their trade details,
+// so the Terms of Service come next if they haven't accepted them before
+// (see termsThenContinue below).
 bot.callbackQuery("confirm", async (ctx) => {
   const draft = drafts.get(ctx.from.id);
   if (!draft?.asset || draft.side !== "buy" || draft.nairaAmount === undefined) {
     return ctx.answerCallbackQuery();
   }
   await ctx.answerCallbackQuery();
+  await termsThenContinue(ctx, draft);
+});
 
+// After the terms are accepted: network (if needed) -> address.
+async function continueBuy(ctx: Context, draft: Draft) {
   let addresses: AddressInfo[] = [];
   try {
-    addresses = await getAddresses(draft.asset);
+    addresses = await getAddresses(draft.asset!);
   } catch (e) {
     console.error("Could not load addresses:", e);
   }
@@ -421,18 +739,116 @@ bot.callbackQuery("confirm", async (ctx) => {
   }
 
   draft.network = addresses[0]?.network ?? null;
+  await promptBuyAddress(ctx, draft);
+}
+
+// Offers the customer's saved addresses for this asset and network, or lets
+// them type a new one. Typing an address also works while the buttons show.
+async function promptBuyAddress(ctx: Context, draft: Draft) {
   draft.step = "buyAddress";
-  await ctx.editMessageText(`Please enter the ${draft.asset} address you want it sent to.`);
-});
+  draft.addressFromSaved = false;
+  draft.savedAddresses = undefined;
+
+  let saved: CustomerAddress[] = [];
+  if (ctx.from) {
+    try {
+      const all = await listAddresses(ctx.from, { asset: draft.asset, network: draft.network ?? null });
+      saved = all.filter((a) => a.asset === draft.asset && (a.network ?? null) === (draft.network ?? null));
+    } catch (e) {
+      console.error("Could not load saved addresses:", e);
+    }
+  }
+
+  if (saved.length === 0) {
+    await ctx.editMessageText(`Please enter the ${draft.asset} address you want it sent to.`);
+    return;
+  }
+
+  draft.savedAddresses = saved;
+  const kb = new InlineKeyboard();
+  saved.forEach((a, i) => kb.text(`Address ${i + 1}: ${shortAddress(a.address)}`, `addr:${a.id}`).row());
+  kb.text("Use a new address", "addrNew");
+  await ctx.editMessageText(
+    `Where should we send your ${draft.asset}? Choose a saved address or use a new one.`,
+    { reply_markup: kb },
+  );
+}
 
 bot.callbackQuery(/^buyNetwork:(.+)$/, async (ctx) => {
   const draft = drafts.get(ctx.from.id);
   if (!draft?.asset) return ctx.answerCallbackQuery();
   draft.network = ctx.match[1];
   await ctx.answerCallbackQuery();
+  await promptBuyAddress(ctx, draft);
+});
+
+bot.callbackQuery(/^addr:(\d+)$/, async (ctx) => {
+  const draft = drafts.get(ctx.from.id);
+  await ctx.answerCallbackQuery();
+  if (!draft?.asset) return ctx.editMessageText("This trade has expired. Send /start to begin again.");
+  const saved = draft.savedAddresses?.find((a) => a.id === Number(ctx.match[1]));
+  if (!saved) {
+    draft.step = "buyAddress";
+    return ctx.editMessageText(`That saved address is no longer available. Please enter the ${draft.asset} address you want it sent to.`);
+  }
+  draft.address = saved.address;
+  draft.addressFromSaved = true;
+  draft.step = null;
+  await proceedToBuyPayment(draft, (text, other) => ctx.editMessageText(text, other));
+});
+
+bot.callbackQuery("addrNew", async (ctx) => {
+  const draft = drafts.get(ctx.from.id);
+  if (!draft?.asset) return ctx.answerCallbackQuery();
   draft.step = "buyAddress";
+  draft.addressFromSaved = false;
+  await ctx.answerCallbackQuery();
   await ctx.editMessageText(`Please enter the ${draft.asset} address you want it sent to.`);
 });
+
+type Send = (
+  text: string,
+  other?: { parse_mode?: "HTML"; reply_markup?: InlineKeyboard },
+) => Promise<unknown>;
+
+// Once the receiving address is known (typed or saved): a fresh, authoritative
+// quote now that the real ₦ amount is known — regenerates an expired quote and
+// triggers a live Bybit re-check for a bulk-sized trade (see
+// app/api/bot/quote/route.ts) — then the payment details. No transaction yet:
+// it's created only once the customer confirms they've sent payment ("buySent").
+async function proceedToBuyPayment(draft: Draft, send: Send) {
+  const fresh = await requestQuote(draft.asset!, "buy", draft.nairaAmount).catch(() => null);
+  if (!fresh || fresh.rate === null) {
+    return send("Sorry, rates are temporarily unavailable right now. Please try again shortly.");
+  }
+  draft.buyRate = fresh.rate;
+  draft.quoteId = fresh.quoteId;
+  draft.nairaAmount = exactNaira(draft.coinAmount! * fresh.rate);
+
+  let account: PaymentAccount | null = null;
+  try {
+    account = await getPaymentAccount();
+  } catch (e) {
+    console.error("Could not load payment account:", e);
+  }
+  // The account number is in <code> (tap to copy in Telegram) and has its
+  // own copy button, so the customer copies just the number.
+  const accountLines = account
+    ? `Account Name: ${esc(account.account_name)}\nAccount Number: <code>${esc(account.account_number)}</code>\nBank: ${esc(account.bank_name)}\n`
+    : "";
+  // Shown back to the customer so they can see exactly where it's going,
+  // especially when it was picked from the saved list.
+  const networkNote = draft.network ? ` (${esc(draft.network)})` : "";
+  const destination = `\n\nYour ${esc(draft.asset!)}${networkNote} will be sent to:\n<code>${esc(draft.address!)}</code>`;
+
+  const kb = new InlineKeyboard();
+  if (account) kb.copyText("📋 Copy account number", account.account_number).row();
+  kb.text("I've sent the payment", "buySent").text("Cancel", "abort");
+  return send(`Payment Details\n${accountLines}Send: ${naira(draft.nairaAmount!)}${destination}`, {
+    parse_mode: "HTML",
+    reply_markup: kb,
+  });
+}
 
 // Only created once the customer confirms they've actually sent payment —
 // nothing exists on the backend before this, same as the sell side below.
@@ -451,13 +867,14 @@ bot.callbackQuery("buySent", async (ctx) => {
   }
 
   await ctx.editMessageText(
-    `Your transaction has been received and is currently being processed.\n\n` +
+    `Thank you, your transaction has been logged. Our team will verify your payment before processing it.\n\n` +
       `Transaction ID: ${trade.transaction_id}\n\n` +
       `Keep this ID to track your transaction. You'll be notified here once payment is confirmed and the trade completes.` +
       trackLine(trade.transaction_id),
   );
 
   await alertStaff(alertText(draft, trade.transaction_id, who(ctx.from)), trade.id, ctx.from.id);
+  await rememberUsedDetails(ctx.from, draft);
   drafts.delete(ctx.from.id);
 });
 
@@ -475,16 +892,53 @@ function sellOrderSummary(draft: Draft): string {
   );
 }
 
+// The customer has seen their rate and payout and wants to go ahead: ask
+// where to pay them, offering saved bank accounts first.
+bot.callbackQuery("sellAmountOk", async (ctx) => {
+  const draft = drafts.get(ctx.from.id);
+  if (!draft?.asset || !draft.coinAmount || !draft.sellRate) return ctx.answerCallbackQuery();
+  await ctx.answerCallbackQuery();
+  try {
+    const banks = await listBanks(ctx.from);
+    draft.savedBanks = banks;
+    if (banks.length) {
+      return ctx.editMessageText(
+        "How would you like to receive your payment? Choose a saved bank account or add a new one.",
+        { reply_markup: bankChooser(banks) },
+      );
+    }
+  } catch (e) {
+    console.error("Could not load saved banks:", e);
+  }
+  draft.step = "sellAccountName";
+  await ctx.editMessageText("Please enter the account name exactly as your bank shows it.");
+});
+
+bot.callbackQuery("sellAmountEdit", async (ctx) => {
+  const draft = drafts.get(ctx.from.id);
+  if (!draft?.asset) return ctx.answerCallbackQuery();
+  await ctx.answerCallbackQuery();
+  draft.step = "sellCoin";
+  await ctx.editMessageText(
+    `How much ${draft.asset} do you want to sell? Enter the amount in ${draft.asset}, for example 50.`,
+  );
+});
+
 bot.callbackQuery("sellEdit", async (ctx) => {
   const draft = drafts.get(ctx.from.id);
   if (!draft) return ctx.answerCallbackQuery();
-  draft.step = "sellAccountName";
   await ctx.answerCallbackQuery();
+  // Offer the saved accounts again before asking for a new one.
+  if (draft.savedBanks?.length) {
+    return ctx.editMessageText(
+      "How would you like to receive your payment? Choose a saved bank account or add a new one.",
+      { reply_markup: bankChooser(draft.savedBanks) },
+    );
+  }
+  draft.step = "sellAccountName";
   await ctx.editMessageText("Please enter your account Name");
 });
 
-// Quote timestamps are "YYYY-MM-DD HH:MM:SS" UTC.
-const quoteTime = (s: string) => new Date(`${s.replace(" ", "T")}Z`).getTime();
 
 // Shown on /track and in confirmations when the site has a public address.
 const siteUrl = process.env.SITE_URL?.replace(/\/$/, "");
@@ -492,32 +946,140 @@ const trackLine = (transactionId: string) =>
   siteUrl ? `\nTrack it any time: ${siteUrl}/track?id=${encodeURIComponent(transactionId)}` : "";
 
 async function showSellAddress(
-  ctx: { editMessageText: (text: string, other?: { reply_markup?: InlineKeyboard }) => Promise<unknown> },
+  ctx: {
+    editMessageText: (
+      text: string,
+      other?: { reply_markup?: InlineKeyboard; parse_mode?: "HTML" },
+    ) => Promise<unknown>;
+  },
   draft: Draft,
   addr: AddressInfo,
 ) {
   draft.network = addr.network;
   draft.address = addr.address;
-  const networkLine = addr.network ? `Network: ${addr.network}\n` : "";
+  const networkLine = addr.network ? `Network: ${esc(addr.network)}\n` : "";
   const minutes = draft.sellRateLockedUntil
     ? Math.max(1, Math.round((draft.sellRateLockedUntil - Date.now()) / 60000))
     : null;
   const lockLine = minutes
     ? `\n\nThis rate is locked for ${minutes} minutes. Send and tap "I've sent it" within that time to keep it.`
     : "";
+  // The address is in <code> (tap to copy in Telegram) and has its own copy
+  // button, so the customer copies just the address.
   await ctx.editMessageText(
-    `Asset: ${draft.asset}\nAmount: ${draft.coinAmount} ${draft.asset}\nRate: ${naira(draft.sellRate!)}\nYou receive: ${naira(draft.nairaAmount!)}\n${networkLine}✅${addr.address}${lockLine}`,
-    { reply_markup: new InlineKeyboard().text("I've sent it", "sellSent").text("Cancel", "abort") },
+    `Asset: ${draft.asset}\nAmount: ${draft.coinAmount} ${draft.asset}\nRate: ${naira(draft.sellRate!)}\nYou receive: ${naira(draft.nairaAmount!)}\n${networkLine}✅ <code>${esc(addr.address)}</code>${lockLine}`,
+    {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard()
+        .copyText("📋 Copy address", addr.address)
+        .row()
+        .text("I've sent it", "sellSent")
+        .text("Cancel", "abort"),
+    },
   );
 }
 
+// --- Terms of Service --------------------------------------------------------
+// Shown once the customer has checked their trade details (buy: "Trade" on
+// the summary; sell: "Continue" on the bank-details summary), before anything
+// else happens. Asked once per customer: the acceptance is saved on their
+// account, and later trades skip straight past it. Accept carries on with the
+// trade; Decline cancels it (and they are asked again next time). "Read Terms" opens the website's /terms page — that
+// needs SITE_URL (Telegram won't open a localhost link), so without it the
+// button just says where to find them.
+
+const termsUrl = siteUrl ? `${siteUrl}/terms` : null;
+
+const TERMS_MESSAGE =
+  `📜 TERMS OF SERVICE\n\n` +
+  `Before we continue, please confirm you accept ORBITAL's Terms of Service. ` +
+  `They cover how trades, rates, payments and disputes work.\n\n` +
+  `Tap "Read Terms" to read them in full, then "Accept" to continue with this trade ` +
+  `or "Decline" to cancel it.`;
+
+function termsKeyboard() {
+  const kb = new InlineKeyboard().text("✅ Accept", "termsAccept").row();
+  if (termsUrl) kb.url("📄 Read Terms", termsUrl);
+  else kb.text("📄 Read Terms", "termsRead");
+  return kb.row().text("❌ Decline", "termsDecline");
+}
+
+async function askTerms(ctx: Context, draft: Draft) {
+  draft.awaitingTerms = true;
+  await ctx.editMessageText(TERMS_MESSAGE, { reply_markup: termsKeyboard() });
+}
+
+function continueTrade(ctx: Context, draft: Draft) {
+  return draft.side === "buy" ? continueBuy(ctx, draft) : continueSell(ctx, draft);
+}
+
+// Carries on with the trade if this customer has already accepted the terms;
+// otherwise shows them. If the account can't be checked, the terms are shown:
+// asking twice is better than skipping them.
+async function termsThenContinue(ctx: Context, draft: Draft) {
+  let accepted = false;
+  try {
+    accepted = Boolean(ctx.from && (await lookupCustomer(ctx.from))?.terms_accepted_at);
+  } catch (e) {
+    console.error("Could not check terms acceptance:", e instanceof Error ? e.message : e);
+  }
+  if (accepted) return continueTrade(ctx, draft);
+  return askTerms(ctx, draft);
+}
+
+bot.callbackQuery("termsAccept", async (ctx) => {
+  const draft = drafts.get(ctx.from.id);
+  await ctx.answerCallbackQuery();
+  // A second tap on Accept (double-tap, or an old Terms message) is ignored,
+  // so the trade doesn't carry on twice — for a sell, locking the rate twice.
+  if (draft?.awaitingTerms === false) return;
+  if (draft) draft.awaitingTerms = false;
+  // Remember the acceptance so they aren't asked on their next trade. If it
+  // can't be saved, this trade still goes ahead and they are asked again later.
+  try {
+    await customerApi(ctx.from, "acceptTerms");
+  } catch (e) {
+    console.error("Could not save terms acceptance:", e instanceof Error ? e.message : e);
+  }
+  if (draft?.side === "buy" && draft.asset && draft.nairaAmount !== undefined) {
+    return continueBuy(ctx, draft);
+  }
+  if (draft?.side === "sell" && draft.accountName && draft.accountNumber && draft.bankName) {
+    return continueSell(ctx, draft);
+  }
+  // No trade in progress any more (e.g. the bot restarted in between).
+  await ctx.editMessageText("This trade has expired. Send /start to begin again.");
+});
+
+bot.callbackQuery("termsDecline", async (ctx) => {
+  drafts.delete(ctx.from.id);
+  await ctx.answerCallbackQuery();
+  await ctx.editMessageText(
+    "You declined ORBITAL's Terms of Service, so this trade has been cancelled. " +
+      "You'll need to accept them to trade with us. Send /start whenever you're ready.",
+  );
+});
+
+// Only used when SITE_URL isn't set (see above).
+bot.callbackQuery("termsRead", (ctx) =>
+  ctx.answerCallbackQuery({
+    text: 'Our Terms of Service are on the ORBITAL website: tap "Terms of Service" at the bottom of any page.',
+    show_alert: true,
+  }),
+);
+
+// "Continue" on the sell summary: same as the buy side, terms first if needed.
 bot.callbackQuery("sellContinue", async (ctx) => {
   const draft = drafts.get(ctx.from.id);
   if (!draft?.accountName || !draft.accountNumber || !draft.bankName) {
     return ctx.answerCallbackQuery();
   }
   await ctx.answerCallbackQuery();
+  await termsThenContinue(ctx, draft);
+});
 
+// After the terms are accepted: lock the rate -> network (if needed) -> address.
+async function continueSell(ctx: Context, draft: Draft) {
   // Lock the payout rate now, before the customer sends anything, so the
   // amount they are promised is the amount they get (if they confirm in
   // time). Bulk-sized sells get their bulk price here too.
@@ -526,10 +1088,10 @@ bot.callbackQuery("sellContinue", async (ctx) => {
     return ctx.editMessageText("Sorry, rates are temporarily unavailable right now. Please try again shortly.");
   }
   draft.sellRate = locked.rate;
-  draft.nairaAmount = roundNaira(draft.coinAmount! * locked.rate);
+  draft.nairaAmount = exactNaira(draft.coinAmount! * locked.rate);
   draft.quoteId = locked.quoteId;
   draft.quoteExpiresAt = locked.expiresAt;
-  draft.sellRateLockedUntil = locked.expiresAt ? quoteTime(locked.expiresAt) : undefined;
+  draft.sellRateLockedUntil = locked.expiresAt ? dbTime(locked.expiresAt) : undefined;
 
   let addresses: AddressInfo[] = [];
   try {
@@ -539,7 +1101,7 @@ bot.callbackQuery("sellContinue", async (ctx) => {
   }
 
   if (addresses.length === 0) {
-    drafts.delete(ctx.from.id);
+    if (ctx.from) drafts.delete(ctx.from.id);
     return ctx.editMessageText(
       `We don't have a deposit address set up for ${draft.asset} right now. Please contact support to complete this sell.`,
       { reply_markup: new InlineKeyboard().url("Customer Support", orbitalConfig.whatsapp) },
@@ -560,7 +1122,7 @@ bot.callbackQuery("sellContinue", async (ctx) => {
   }
 
   await showSellAddress(ctx, draft, addresses[0]);
-});
+}
 
 bot.callbackQuery(/^sellNetwork:(.+)$/, async (ctx) => {
   const draft = drafts.get(ctx.from.id);
@@ -600,7 +1162,7 @@ bot.callbackQuery("sellSent", async (ctx) => {
       rateNote = "\n\nYour rate lock had run out, so today's rate was applied to your payout.";
     }
     draft.sellRate = fresh.rate;
-    draft.nairaAmount = roundNaira(draft.coinAmount! * fresh.rate);
+    draft.nairaAmount = exactNaira(draft.coinAmount! * fresh.rate);
   }
 
   let trade: { id: number; transaction_id: string };
@@ -613,7 +1175,7 @@ bot.callbackQuery("sellSent", async (ctx) => {
   }
 
   await ctx.editMessageText(
-    `Your transaction has been received and is currently being processed.\n\n` +
+    `Thank you, your transaction has been logged. Our team will verify your deposit before paying you.\n\n` +
       `Asset: ${draft.asset}\nAmount: ${draft.coinAmount} ${draft.asset}\nRate: ${naira(draft.sellRate!)}\n` +
       `You receive: ${naira(draft.nairaAmount!)}\n\n` +
       `Transaction ID: ${trade.transaction_id}\n\n` +
@@ -623,6 +1185,7 @@ bot.callbackQuery("sellSent", async (ctx) => {
   );
 
   await alertStaff(alertText(draft, trade.transaction_id, who(ctx.from)), trade.id, ctx.from.id);
+  await rememberUsedDetails(ctx.from, draft);
   drafts.delete(ctx.from.id);
 });
 
@@ -702,16 +1265,30 @@ bot.on("message:text", async (ctx) => {
     return ctx.reply("Send /start to open the menu.");
   }
 
+  if (draft.step === "preferredName") {
+    const checkedName = checkPreferredName(ctx.message.text);
+    if (!checkedName.ok) return ctx.reply(checkedName.error);
+    const name = checkedName.value;
+    try {
+      await customerApi(ctx.from, "setPreferredName", { preferred_name: name });
+    } catch (e) {
+      console.error("Could not save preferred name:", e);
+      return ctx.reply("I couldn’t save that just now. Please try again shortly.");
+    }
+    draft.step = null;
+    if (draft.renaming) {
+      draft.renaming = false;
+      return ctx.reply(`Done! We'll call you ${name} from now on.`, { reply_markup: mainMenuKeyboard() });
+    }
+    return ctx.reply(`Nice to meet you, ${esc(name)}! How can we help you today?`, { reply_markup: mainMenuKeyboard() });
+  }
+
   if (draft.step === "buyAmount") {
     const amount = checkCoinAmount(ctx.message.text);
     if (!amount.ok) return ctx.reply(amount.error);
     const value = Number(amount.value);
-    const nairaValue = roundNaira(value * draft.buyRate!);
-    if (nairaValue < MIN_NGN || nairaValue > MAX_NGN) {
-      return ctx.reply(
-        `That works out to ${naira(nairaValue)}, which is outside our range of ${naira(MIN_NGN)} to ${naira(MAX_NGN)}. Please adjust the amount.`,
-      );
-    }
+    const nairaValue = exactNaira(value * draft.buyRate!);
+    if (nairaValue < MIN_NGN) return ctx.reply(belowMinimum(nairaValue));
     draft.coinAmount = value;
     draft.nairaAmount = nairaValue;
     draft.step = null;
@@ -730,53 +1307,44 @@ bot.on("message:text", async (ctx) => {
     const address = checkWalletAddress(draft.asset!, draft.network, ctx.message.text);
     if (!address.ok) return ctx.reply(address.error);
     draft.address = address.value;
+    draft.addressFromSaved = false;
     draft.step = null;
-
-    // A fresh, authoritative quote now that the real ₦ amount is known —
-    // regenerates an expired quote and triggers a live Bybit re-check for
-    // a bulk-sized trade (see app/api/bot/quote/route.ts). Recomputes the
-    // ₦ total from the (possibly updated) rate; the coin amount the
-    // customer asked for doesn't change.
-    const fresh = await requestQuote(draft.asset!, "buy", draft.nairaAmount).catch(() => null);
-    if (!fresh || fresh.rate === null) {
-      return ctx.reply("Sorry, rates are temporarily unavailable right now. Please try again shortly.");
-    }
-    draft.buyRate = fresh.rate;
-    draft.quoteId = fresh.quoteId;
-    draft.nairaAmount = roundNaira(draft.coinAmount! * fresh.rate);
-
-    // No transaction yet — created only once the customer confirms they've
-    // actually sent payment (the "buySent" callback below).
-    let account: PaymentAccount | null = null;
-    try {
-      account = await getPaymentAccount();
-    } catch (e) {
-      console.error("Could not load payment account:", e);
-    }
-    const accountLines = account
-      ? `Account Name: ${account.account_name}\nAccount Number: ${account.account_number}\nBank: ${account.bank_name}\n`
-      : "";
-
-    const kb = new InlineKeyboard().text("I've sent the payment", "buySent").text("Cancel", "abort");
-    return ctx.reply(`Payment Details\n${accountLines}Send: ${naira(draft.nairaAmount!)}`, {
-      reply_markup: kb,
-    });
+    return proceedToBuyPayment(draft, (text, other) => ctx.reply(text, other));
   }
 
   if (draft.step === "sellCoin") {
     const amount = checkCoinAmount(ctx.message.text);
     if (!amount.ok) return ctx.reply(amount.error);
     const value = Number(amount.value);
-    const naira_ = roundNaira(value * draft.sellRate!);
-    if (naira_ < MIN_NGN || naira_ > MAX_NGN) {
+    const naira_ = exactNaira(value * draft.sellRate!);
+    if (naira_ < MIN_NGN) return ctx.reply(belowMinimum(naira_));
+    // Now that the amount is known, get the rate for a sale of this size
+    // and show it, with what the customer would receive.
+    const sized = await requestQuote(draft.asset!, "sell", naira_).catch(() => null);
+    if (!sized || sized.rate === null) {
       return ctx.reply(
-        `That works out to ${naira(naira_)}, which is outside our range of ${naira(MIN_NGN)} to ${naira(MAX_NGN)}. Please adjust the amount.`,
+        `Rates for ${draft.asset} are temporarily unavailable. Please try again shortly or contact support.`,
+        { reply_markup: new InlineKeyboard().url("Customer Support", orbitalConfig.whatsapp) },
       );
     }
+    draft.sellRate = sized.rate;
+    draft.quoteId = sized.quoteId;
+    draft.quoteExpiresAt = sized.expiresAt;
     draft.coinAmount = value;
-    draft.nairaAmount = naira_;
-    draft.step = "sellAccountName";
-    return ctx.reply("Please enter the account name exactly as your bank shows it.");
+    draft.nairaAmount = exactNaira(value * sized.rate);
+    draft.step = null;
+    return ctx.reply(
+      `Sell ${draft.asset}\n\nAmount: ${value} ${draft.asset}\nRate: ${naira(sized.rate)} / ${draft.asset}\n` +
+        `You receive: ${naira(draft.nairaAmount)}\n\n` +
+        `Your rate is locked in once you confirm your bank details.`,
+      {
+        reply_markup: new InlineKeyboard()
+          .text("Continue", "sellAmountOk")
+          .row()
+          .text("Change amount", "sellAmountEdit")
+          .text("Cancel", "abort"),
+      },
+    );
   }
 
   if (draft.step === "sellAccountName") {
@@ -799,7 +1367,10 @@ bot.on("message:text", async (ctx) => {
     const bank = checkBankName(ctx.message.text);
     if (!bank.ok) return ctx.reply(bank.error);
     draft.bankName = bank.value;
+    draft.bankFromSaved = false;
     draft.step = null;
+    // Not saved yet: a bank account goes on the customer's profile only once a
+    // trade using it is actually placed (see rememberUsedDetails).
     return ctx.reply(sellOrderSummary(draft), { reply_markup: sellSummaryKeyboard() });
   }
 
@@ -861,6 +1432,10 @@ bot.on("message:text", async (ctx) => {
 bot.catch((err) => console.error("Bot error:", err.error));
 
 async function main() {
+  if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.BOT_API_KEY) {
+    console.error("Bot startup requires both TELEGRAM_BOT_TOKEN and BOT_API_KEY.");
+    return;
+  }
   await bot.api.setMyCommands([
     { command: "start", description: "Open the ORBITAL menu" },
     { command: "trade", description: "Buy or sell a digital asset" },

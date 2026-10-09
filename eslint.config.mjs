@@ -53,6 +53,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Worktree copies made by the Kilo Code editor extension, not this code.
+    ".kilo/**",
   ]),
 ]);
 

@@ -3,6 +3,7 @@ import { requireAdmin } from "@/backend/auth";
 import { listAccounts } from "@/backend/stats";
 import { money, when } from "@/frontend/lib/format";
 import { ActionForm, inputClass } from "@/frontend/components/admin/ui";
+import Popup from "@/frontend/components/admin/Popup";
 
 export const dynamic = "force-dynamic";
 
@@ -12,25 +13,23 @@ export default async function AccountsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl font-semibold text-ink">Accounts</h1>
-
-      <div className="rounded-2xl border border-line bg-white p-5">
-        <p className="mb-3 font-display text-sm font-semibold text-ink">
-          Register a customer
-        </p>
-        <ActionForm
-          action={registerAccount}
-          submit="Register"
-          className="space-y-3"
-        >
-          <div className="grid gap-3 sm:grid-cols-3">
-            <input name="full_name" placeholder="Full name" className={inputClass} />
-            <input name="username" placeholder="Telegram @username" className={inputClass} />
-            <input name="telegram_id" placeholder="Telegram ID (optional)" className={inputClass} />
-            <input name="phone" placeholder="Phone (optional)" className={inputClass} />
-            <input name="country" placeholder="Country (optional)" className={inputClass} />
-          </div>
-        </ActionForm>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-semibold text-ink">Accounts</h1>
+        <Popup title="Register a customer" trigger="Register a customer" className="rounded-full bg-ink px-4 py-1.5 text-sm text-paper transition-colors hover:text-accent">
+          <ActionForm
+            action={registerAccount}
+            submit="Register"
+            className="space-y-3"
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input name="full_name" placeholder="Full name" className={inputClass} />
+              <input name="username" placeholder="Telegram @username" className={inputClass} />
+              <input name="telegram_id" placeholder="Telegram ID (optional)" className={inputClass} />
+              <input name="phone" placeholder="Phone (optional)" className={inputClass} />
+              <input name="country" placeholder="Country (optional)" className={inputClass} />
+            </div>
+          </ActionForm>
+        </Popup>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-line bg-white">

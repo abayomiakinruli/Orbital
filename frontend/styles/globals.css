@@ -3,6 +3,7 @@
 :root {
   --color-paper: #f7f5ee;
   --color-paper-dim: #eeeadf;
+  --color-surface: #f4f6f5;
   --color-ink: #0b0b0a;
   --color-charcoal: #171714;
   --color-graphite: #58564d;
@@ -16,6 +17,7 @@
 @theme inline {
   --color-paper: var(--color-paper);
   --color-paper-dim: var(--color-paper-dim);
+  --color-surface: var(--color-surface);
   --color-ink: var(--color-ink);
   --color-charcoal: var(--color-charcoal);
   --color-graphite: var(--color-graphite);
@@ -40,7 +42,8 @@ button:not(:disabled),
 }
 
 body {
-  background: var(--color-paper);
+  background: #ffffff;
+  overflow-x: clip;
   color: var(--color-ink);
 }
 
@@ -49,19 +52,87 @@ body {
   color: var(--color-accent-ink);
 }
 
-/* Scroll-reveal utility, driven by IntersectionObserver in components/Reveal.tsx */
+/* Scroll-reveal utility, driven by IntersectionObserver in components/Reveal.tsx:
+   a short fade and rise, or a longer slide in from one side. */
 .reveal {
   opacity: 0;
-  transform: translateY(28px);
+  transform: translateY(16px);
   transition:
-    opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 0.5s ease-out,
+    transform 0.5s ease-out;
   will-change: opacity, transform;
+}
+
+.reveal-left {
+  transform: translateX(-32px);
+}
+
+.reveal-right {
+  transform: translateX(32px);
 }
 
 .reveal-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+}
+
+/* Icons and badges inside a Reveal that pop in just after it. */
+.reveal .pop {
+  opacity: 0;
+}
+
+.reveal-visible .pop {
+  animation: pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--reveal-delay, 0ms) + 180ms);
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Page fade and rise on navigation (app/template.tsx). Fill is backwards only,
+   so no transform lingers to trap the fixed navbar. */
+.page-enter {
+  animation: page-enter 0.25s ease-out backwards;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Same-page section jumps fade the page out and back in
+   (frontend/components/SiteMotion.tsx). */
+body {
+  transition: opacity 0.2s ease;
+}
+
+html.section-fading body {
+  opacity: 0;
+}
+
+/* Cards that grow slightly on hover. */
+.card-lift {
+  transition:
+    transform 0.25s ease-out,
+    box-shadow 0.25s ease-out,
+    border-color 0.25s ease-out;
+}
+
+@media (hover: hover) {
+  .card-lift:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px -2px rgba(10, 31, 20, 0.25);
+  }
 }
 
 /* Hero entrance animation, plays once on mount */
@@ -180,7 +251,7 @@ html[data-splash-done] .splash {
   font-size: 11px;
   letter-spacing: 0.4em;
   text-transform: uppercase;
-  color: rgba(247, 245, 238, 0.55);
+  color: #ffffff;
   animation: splash-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.85s both;
 }
 
@@ -207,23 +278,6 @@ html[data-splash-done] .splash {
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-/* Hero background field: dashed path + floating nodes */
-.field-node {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: field-float 6s ease-in-out infinite;
-}
-
-@keyframes field-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
   }
 }
 
@@ -282,24 +336,6 @@ html[data-splash-done] .splash {
   }
 }
 
-/* Floating hexagon coins on the hero background */
-.coin-float {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: coin-float 7s ease-in-out infinite;
-  filter: drop-shadow(0 10px 10px rgba(11, 11, 10, 0.16));
-}
-
-@keyframes coin-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-12px);
-  }
-}
-
 /* Live price ticker tape */
 .ticker-track {
   animation: ticker-scroll 26s linear infinite;
@@ -348,15 +384,15 @@ html[data-splash-done] .splash {
     scroll-behavior: auto;
   }
 
-  .reveal {
+  .reveal,
+  .reveal .pop {
     opacity: 1;
     transform: none;
     transition: none;
+    animation: none;
   }
 
-  .coin-float,
   .orbit,
-  .field-node,
   .ticker-track,
   .live-pulse,
   .clock-hand {

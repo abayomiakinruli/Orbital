@@ -26,13 +26,6 @@ export const CheckIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const SendIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M21 4 3 11l7 2.5L12.5 21 21 4Z" />
-    <path d="m10 13.5 4-4" />
-  </Svg>
-);
-
 export const ChatIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 19.5 5.3 16A8 8 0 1 1 8 18.7L4 19.5Z" />
@@ -40,44 +33,9 @@ export const ChatIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const GlobeIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3Z" />
-  </Svg>
-);
-
-export const EyeIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-    <circle cx="12" cy="12" r="3" />
-  </Svg>
-);
-
 export const SparkIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" />
-  </Svg>
-);
-
-export const ShieldIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 3 5 6v5.5c0 4.4 3 8.2 7 9.5 4-1.3 7-5.1 7-9.5V6l-7-3Z" />
-    <path d="m9 12 2 2 4-4" />
-  </Svg>
-);
-
-export const PulseIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M3 12h4l2.5-6 5 12L17 12h4" />
-  </Svg>
-);
-
-export const RocketIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M14 4c3.5 0 6 2.5 6 6-2 3.5-5 6-9 8l-5-5c2-4 4.5-7 8-9Z" />
-    <path d="M9 15 6 18M6 13l-2 1 1-3M11 18l-1 2 3-1" />
-    <circle cx="14.5" cy="9.5" r="1.5" />
   </Svg>
 );
 

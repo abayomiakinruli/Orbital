@@ -1,18 +1,17 @@
 import { headers } from "next/headers";
-import { loginBlocked, recordLoginFailure } from "@/backend/auth";
+import { clientIp, loginBlocked, recordLoginFailure } from "@/backend/auth";
 import { ValidationError, addSubscriber } from "@/backend/repo";
 
 // Public endpoint behind the footer's email sign-up
 // (frontend/components/NewsletterSignup.tsx). Each IP gets 5 sign-ups per 15 minutes
 // (the login limiter, under its own key prefix, counting every attempt)
-// so the list can't be flooded. `company` is a honeypot field real
+// so the list can't be flooded. `orbital_hp` is a honeypot field real
 // visitors never see: a filled one means a bot, answered as a success.
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-  if (body.company) return Response.json({ ok: true });
+  if (body.orbital_hp) return Response.json({ ok: true });
 
-  const h = await headers();
-  const key = `subscribe:${h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local"}`;
+  const key = `subscribe:${clientIp(await headers())}`;
   if (loginBlocked(key)) {
     return Response.json(
       { error: "Too many sign-ups from here. Please try again later." },

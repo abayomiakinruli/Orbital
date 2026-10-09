@@ -1,6 +1,6 @@
 import { isBotRequest } from "@/backend/auth";
 import { createQuote, getMarginSettings, getRate, marginTierFor, touchBot } from "@/backend/repo";
-import { classifyRateStatus, priceAssetLive } from "@/backend/rateEngine";
+import { classifyRateStatus } from "@/backend/rateEngine";
 import { priceAsset } from "@/backend/margin";
 
 // GET /api/bot/quote?symbol=USDT&side=buy&ngn_amount=50000[&hold=sell]
@@ -13,11 +13,10 @@ import { priceAsset } from "@/backend/margin";
 // the customer saw" is a durable, re-checkable fact (backend/repo.ts's quotes
 // table).
 //
-// A bulk-sized amount (at or above the configurable threshold) is priced
-// at the bulk margin from a live Bybit check made just for this quote.
-// That price is never cached as the asset's rate, so it can't leak to
-// regular customers. If the live check fails, it's priced from the last
-// cached market reference instead.
+// A bulk-sized amount (at or above the configurable threshold) applies the
+// bulk margin to the *stored* market reference. Quote requests therefore
+// never call Bybit: every website and Telegram figure comes from one worker
+// snapshot, even when Bybit is slow or unavailable.
 //
 // hold=sell asks for a longer expiry (SELL_RATE_LOCK_SECONDS, default 15
 // minutes): the rate a seller is shown before sending their crypto, which
@@ -51,16 +50,13 @@ export async function GET(request: Request) {
   // Bulk tiers only apply to auto-priced assets; a manual rate is exactly
   // what the admin set, whatever the size.
   if (tier === "bulk" && rate.mode === "auto") {
-    try {
-      price = await priceAssetLive(symbol, "bulk");
-    } catch (e) {
-      console.error(`[quote] live bulk check failed for ${symbol}:`, e instanceof Error ? e.message : e);
-      if (rate.reference_rate) {
-        const usdtPrice = symbol === "USDT" ? 1 : (rate.reference_usdt_price ?? 1);
-        const cached = priceAsset(rate.reference_rate, usdtPrice, marginTierFor(settings, "bulk"));
-        price = { ...cached, referenceRate: rate.reference_rate };
-      }
+    if (!rate.reference_rate) {
+      return Response.json({ status: "unavailable", rate: null });
     }
+    const usdtPrice = symbol === "USDT" ? 1 : rate.reference_usdt_price;
+    if (!usdtPrice || !(usdtPrice > 0)) return Response.json({ status: "unavailable", rate: null });
+    const cached = priceAsset(rate.reference_rate, usdtPrice, marginTierFor(settings, "bulk", symbol));
+    price = { ...cached, referenceRate: rate.reference_rate };
   }
 
   const quote = createQuote({

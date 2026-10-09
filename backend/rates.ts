@@ -39,8 +39,9 @@ export type PublicRate = {
   buy: number;
   sell: number;
   change: number | null;
+  updatedAt: string;
 };
-export type PublicRates = { rates: PublicRate[]; usdNgn: number | null };
+export type PublicRates = { rates: PublicRate[]; usdNgn: number | null; updatedAt: string | null };
 
 function usdNgnOf(usdt: RateRow | null | undefined): number | null {
   if (!usdt || !(usdt.buy_rate > 0)) return null;
@@ -71,6 +72,10 @@ export function getPublicRates(): PublicRates {
   const nameOf = new Map(assets.map((a) => [a.symbol, a.name]));
   const rows = getEffectiveRates(assets.map((a) => a.symbol));
   const usdNgn = usdNgnOf(rows.find((r) => r.asset_symbol === "USDT"));
+  const updatedAt = rows.reduce<string | null>(
+    (latest, row) => (!latest || row.updated_at > latest ? row.updated_at : latest),
+    null,
+  );
   return {
     rates: rows.map((r) => ({
       symbol: r.asset_symbol,
@@ -78,7 +83,9 @@ export function getPublicRates(): PublicRates {
       buy: r.buy_rate,
       sell: r.sell_rate,
       change: getRateChange(r, "usd"),
+      updatedAt: r.updated_at,
     })),
     usdNgn,
+    updatedAt,
   };
 }

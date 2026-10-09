@@ -1,6 +1,6 @@
 # Deploying ORBITAL
 
-ORBITAL runs as three processes (website, Telegram bot, rate worker) that share one SQLite file, so they must run **on the same server**. A small Linux VPS (1 GB RAM, Ubuntu 24.04) is enough. Serverless hosts such as Vercel will not work: the bot must run continuously and the database lives on disk.
+ORBITAL runs as four processes (website, Telegram bot, rate worker, rate-updates channel bot) that share one SQLite file, so they must run **on the same server**. A small Linux VPS (1 GB RAM, Ubuntu 24.04) is enough. Serverless hosts such as Vercel will not work: the bot must run continuously and the database lives on disk.
 
 ## 1. Prepare the server
 
@@ -30,6 +30,7 @@ In `.env.local`, set at least:
 - `SITE_URL` to your domain, e.g. `https://orbital.ng`
 - `API_BASE_URL=http://localhost:3000`
 - `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (generate with `openssl rand -base64 32`)
+- `CUSTOMER_DATA_ENCRYPTION_KEY`: copy the one from your current `.env.local` if customers have already saved bank accounts or wallet addresses (a different key cannot read them); otherwise generate one with `openssl rand -base64 32`. Keep a safe copy either way
 - the secrets from your current `.env.local` (admin password, session secret, bot token, bot API key, staff chat IDs, Bybit keys)
 
 **Moving from a laptop?** Stop the bot there first (only one copy may run per bot token), then copy your data across so accounts, trades, rates and uploaded adverts come too:
@@ -45,8 +46,10 @@ npm run build
 pm2 start ecosystem.config.cjs
 pm2 save
 pm2 startup      # run the command it prints, so ORBITAL restarts after a reboot
-pm2 logs         # watch all three processes
+pm2 logs         # watch all four processes
 ```
+
+pm2 keeps the three background processes running, so `ecosystem.config.cjs` sets `ORBITAL_SUPERVISOR=off` on the website. That turns off the website's own restarter (`backend/supervisor.ts`), which would otherwise start second copies. Leave it off whenever pm2 (or anything else) manages them.
 
 ## 4. Domain and HTTPS
 

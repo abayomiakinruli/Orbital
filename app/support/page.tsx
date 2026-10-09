@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/frontend/components/Navbar";
 import Footer from "@/frontend/components/Footer";
+import { SupportIllustration } from "@/frontend/components/Illustrations";
 import Reveal from "@/frontend/components/Reveal";
 import { ChatIcon, CheckIcon, ReceiptIcon, SparkIcon } from "@/frontend/components/Icons";
 import { orbitalConfig } from "@/config/orbital";
@@ -43,21 +44,27 @@ export default function SupportPage() {
       <Navbar />
       <main className="relative isolate">
         <section className="bg-charcoal pt-40 pb-16 sm:pt-48 sm:pb-20">
-          <div className="mx-auto max-w-7xl px-6 lg:px-10">
-            <Reveal>
-              <p className="font-display text-xs font-medium tracking-[0.25em] text-paper/50 uppercase">
-                Support
-              </p>
-            </Reveal>
-            <Reveal delayMs={80}>
-              <h1 className="mt-5 max-w-3xl font-display text-5xl font-medium tracking-tight text-balance text-paper sm:text-6xl lg:text-7xl">
-                How can we help?
-              </h1>
+          <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-6 lg:grid-cols-[1.3fr_0.7fr] lg:gap-16 lg:px-10">
+            <div>
+              <Reveal>
+                <p className="font-display text-xs font-medium tracking-[0.25em] text-white uppercase">
+                  Support
+                </p>
+              </Reveal>
+              <Reveal delayMs={80}>
+                <h1 className="mt-5 max-w-3xl font-display text-5xl font-medium tracking-tight text-balance text-paper sm:text-6xl lg:text-7xl">
+                  How can we help?
+                </h1>
+              </Reveal>
+            </div>
+
+            <Reveal from="right" delayMs={160}>
+              <SupportIllustration className="mx-auto h-auto w-full max-w-sm" />
             </Reveal>
           </div>
         </section>
 
-        <section className="bg-paper py-20 sm:py-28">
+        <section className="bg-white py-20 sm:py-28">
           <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-6 lg:grid-cols-[1.3fr_1fr] lg:px-10">
             <div>
               <Reveal>
@@ -98,13 +105,13 @@ export default function SupportPage() {
             <Reveal delayMs={160}>
               <div className="flex h-full flex-col justify-between rounded-3xl bg-ink p-8 sm:p-10 lg:sticky lg:top-28 lg:h-auto">
                 <div>
-                  <p className="font-display text-xs tracking-[0.25em] text-paper/40 uppercase">
+                  <p className="font-display text-xs tracking-[0.25em] text-white uppercase">
                     WhatsApp support
                   </p>
                   <p className="mt-4 font-display text-3xl font-medium tracking-tight text-paper">
                     {orbitalConfig.whatsappDisplay}
                   </p>
-                  <p className="mt-4 text-base leading-relaxed text-paper/60">
+                  <p className="mt-4 text-base leading-relaxed text-white">
                     We will never ask for your recovery phrase, private keys or passwords. Anyone
                     who does is not ORBITAL.
                   </p>
@@ -118,7 +125,7 @@ export default function SupportPage() {
                   >
                     Chat on WhatsApp
                   </a>
-                  <p className="text-center text-sm text-paper/50">
+                  <p className="text-center text-sm text-white">
                     Ready to trade instead?{" "}
                     <Link href={orbitalConfig.tradePage} className="text-paper underline underline-offset-4 hover:text-accent">
                       Go to Trade

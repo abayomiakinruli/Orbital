@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 interface RevealProps {
   children: ReactNode;
   className?: string;
   delayMs?: number;
+  // Direction the content travels in from; sideways entrances move further.
+  from?: "up" | "left" | "right";
+  style?: CSSProperties;
 }
 
-export default function Reveal({ children, className = "", delayMs = 0 }: RevealProps) {
+export default function Reveal({ children, className = "", delayMs = 0, from = "up", style }: RevealProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -24,7 +27,8 @@ export default function Reveal({ children, className = "", delayMs = 0 }: Reveal
           observer.disconnect();
         }
       },
-      { threshold: 0.15 },
+      // Wait until the element is 80px clear of the bottom edge.
+      { rootMargin: "0px 0px -80px 0px" },
     );
 
     observer.observe(node);
@@ -34,8 +38,15 @@ export default function Reveal({ children, className = "", delayMs = 0 }: Reveal
   return (
     <div
       ref={ref}
-      className={`reveal ${visible ? "reveal-visible" : ""} ${className}`}
-      style={{ transitionDelay: visible ? `${delayMs}ms` : "0ms" }}
+      className={`reveal ${from === "up" ? "" : `reveal-${from}`} ${visible ? "reveal-visible" : ""} ${className}`}
+      style={
+        {
+          ...style,
+          transitionDelay: visible ? `${delayMs}ms` : "0ms",
+          // Read by .pop children so they pop in just after their parent.
+          "--reveal-delay": `${delayMs}ms`,
+        } as CSSProperties
+      }
     >
       {children}
     </div>

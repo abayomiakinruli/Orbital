@@ -52,17 +52,17 @@ export default function LegalPage({
       <main className="relative isolate">
         <section className="bg-charcoal pt-40 pb-16 sm:pt-48">
           <div className="mx-auto max-w-3xl px-6 lg:px-10">
-            <p className="font-display text-xs font-medium tracking-[0.25em] text-paper/50 uppercase">
+            <p className="font-display text-xs font-medium tracking-[0.25em] text-white uppercase">
               {eyebrow}
             </p>
             <h1 className="mt-5 font-display text-5xl font-medium tracking-tight text-paper sm:text-6xl">
               {title}
             </h1>
-            <p className="mt-4 text-sm text-paper/50">Last updated {updated}</p>
+            <p className="mt-4 text-sm text-white">Last updated {updated}</p>
           </div>
         </section>
 
-        <article className="bg-paper py-16 sm:py-20">
+        <article className="bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-5xl px-6 lg:px-10">
             {intro.map((para) => (
               <p key={para} className="mt-4 first:mt-0 text-lg leading-relaxed text-ink">
@@ -70,7 +70,7 @@ export default function LegalPage({
               </p>
             ))}
 
-            <details className="group mt-10 rounded-2xl border border-line bg-paper-dim/60 p-6">
+            <details className="group mt-10 rounded-2xl border border-line bg-white p-6">
               <summary className="flex cursor-pointer list-none items-center justify-between font-display text-base font-medium text-ink [&::-webkit-details-marker]:hidden">
                 Contents ({sections.length} sections)
                 <span aria-hidden="true" className="transition-transform group-open:rotate-45">+</span>

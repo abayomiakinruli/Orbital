@@ -23,8 +23,8 @@ const faqs = [
     a: "When you sell, your rate is locked for 15 minutes once you see the deposit address. Send and tap “I've sent it” within that window and you receive the payout you were shown.",
   },
   {
-    q: "What are the minimum and maximum amounts?",
-    a: "Each trade can be worth between ₦5,000 and ₦50,000,000.",
+    q: "Is there a limit on how much I can trade?",
+    a: "The smallest trade is ₦5,000. There is no upper limit: trade as much as you need.",
   },
   {
     q: "How do I pay, and how do I get paid?",
@@ -44,7 +44,7 @@ export default function FAQ() {
   return (
     <section id="faq" className="py-28 sm:py-36">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-6 lg:grid-cols-[1fr_1.4fr] lg:gap-16 lg:px-10">
-        <SectionHeading index="06" label="FAQ" title="Questions, answered.">
+        <SectionHeading label="FAQ" title="Questions, answered.">
           <p>
             Something not covered here?{" "}
             <a href={orbitalConfig.supportPage} className="text-ink underline underline-offset-4 hover:text-[#1d8a55]">
@@ -62,7 +62,7 @@ export default function FAQ() {
                   {item.q}
                   <span
                     aria-hidden="true"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line text-graphite transition-transform duration-300 group-open:rotate-45 group-open:border-ink group-open:text-ink"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line text-graphite transition-[transform,background-color,border-color,color] duration-300 group-hover:border-accent group-hover:text-[#1d8a55] group-open:rotate-45 group-open:border-accent group-open:bg-accent group-open:text-accent-ink"
                   >
                     +
                   </span>

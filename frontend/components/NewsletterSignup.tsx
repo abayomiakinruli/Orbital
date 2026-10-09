@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 
 // The footer's "Get ORBITAL updates" email box. Posts to /api/subscribe;
 // sign-ups are listed at /admin/subscribers.
@@ -9,15 +9,15 @@ export default function NewsletterSignup() {
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [error, setError] = useState("");
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    const company = new FormData(event.currentTarget).get("company");
+    const trap = new FormData(event.currentTarget).get("orbital_hp");
     setState("sending");
     try {
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, company, path: window.location.pathname }),
+        body: JSON.stringify({ email, orbital_hp: trap, path: window.location.pathname }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -36,7 +36,7 @@ export default function NewsletterSignup() {
   return (
     <div className="max-w-md">
       <p className="font-display text-base font-medium text-paper">Get ORBITAL updates</p>
-      <p className="mt-1 text-sm text-paper/50">
+      <p className="mt-1 text-sm text-white">
         New assets, trading notices and announcements, straight to your inbox.
       </p>
 
@@ -59,14 +59,19 @@ export default function NewsletterSignup() {
             placeholder="you@example.com"
             className="min-w-0 flex-1 rounded-full border border-line-dark bg-white/5 px-5 py-3 text-sm text-paper placeholder:text-paper/35 focus:border-accent focus:outline-none"
           />
-          {/* Honeypot: hidden from people, filled in by bots. */}
+          {/* Honeypot: hidden from people, filled in by bots. Deliberately not
+                named like a real field ("company", "website"…), which browser
+                autofill would fill in for genuine visitors. */}
           <input
             type="text"
-            name="company"
+            name="orbital_hp"
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
             tabIndex={-1}
             autoComplete="off"
             aria-hidden="true"
-            className="absolute -left-[9999px] h-0 w-0 opacity-0"
+            className="absolute left-[-9999px] h-0 w-0 opacity-0"
           />
           <button
             type="submit"

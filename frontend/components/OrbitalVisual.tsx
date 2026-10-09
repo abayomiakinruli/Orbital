@@ -2,7 +2,7 @@ export default function OrbitalVisual() {
   return (
     <div
       aria-hidden="true"
-      className="relative mx-auto aspect-square w-full max-w-[420px] sm:max-w-[520px]"
+      className="relative mx-auto aspect-square w-full max-w-105 sm:max-w-130"
     >
       <div className="orbit orbit-1" />
       <div className="orbit orbit-2" />

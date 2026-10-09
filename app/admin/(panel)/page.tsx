@@ -1,8 +1,21 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { postRatesNow } from "@/app/admin/actions";
+import {
+  getBotStatus,
+  getBybitSystemStatus,
+  getRateWorkerStatus,
+  getRateChannelStatus,
+  getRatesStatus,
+  getTelegramStatus,
+  type SystemState,
+  type SystemStatus,
+} from "@/backend/systemStatus";
 import { requireAdmin } from "@/backend/auth";
 import { getRateSeries, listRates } from "@/backend/repo";
 import {
   getAssetBreakdown,
+  daysSinceFirstRecord,
   getDailySeries,
   getHourlySeries,
   getOverview,
@@ -11,7 +24,7 @@ import {
   listTrades,
   type Period,
 } from "@/backend/stats";
-import { ago, money, naira, when } from "@/frontend/lib/format";
+import { money, naira, when } from "@/frontend/lib/format";
 import TimeChart from "@/frontend/components/admin/TimeChart";
 import PriceChart from "@/frontend/components/admin/PriceChart";
 import Sparkline from "@/frontend/components/admin/Sparkline";
@@ -26,8 +39,9 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: "7d", label: "7d" },
   { key: "30d", label: "30d" },
   { key: "1y", label: "1year" },
+  { key: "all", label: "All" },
 ];
-const PERIOD_DAYS: Record<Exclude<Period, "24h">, number> = {
+const PERIOD_DAYS: Record<Exclude<Period, "24h" | "all">, number> = {
   "7d": 7,
   "30d": 30,
   "1y": 365,
@@ -178,34 +192,148 @@ function StackedBar({
   );
 }
 
-// The bot pings /api/bot/ping every 30s (see backend/bot/index.ts's heartbeat)
-// independent of customer activity, so a gap past a couple of missed beats
-// means the process itself is down, not just quiet.
-const BOT_ONLINE_THRESHOLD_MS = 90_000;
+// --- System status panel (backend/systemStatus.ts) ---------------------------
+// One card per system trading depends on, all in the same three colours.
+// The two live checks (Bybit, Telegram) stream in behind Suspense so a slow
+// outside service never holds up the dashboard.
 
-function isBotOnline(lastSeen: string | null): boolean {
-  if (!lastSeen) return false;
-  const seenAt = new Date(`${lastSeen.replace(" ", "T")}Z`).getTime();
-  return Date.now() - seenAt < BOT_ONLINE_THRESHOLD_MS;
+const SYSTEM_STATE_STYLE: Record<SystemState, { color: string; background: string }> = {
+  online: { color: STATUS_COLOR.successful, background: "rgba(12,163,12,0.08)" },
+  limited: { color: STATUS_COLOR.processing, background: "rgba(250,178,25,0.1)" },
+  offline: { color: STATUS_COLOR.failed, background: "rgba(208,59,59,0.08)" },
+};
+
+// Tick = online, warning triangle = limited, cross = offline.
+function SystemStateIcon({ state, color }: { state: SystemState; color: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="h-3.5 w-3.5 shrink-0">
+      {state === "limited" ? (
+        <>
+          <path d="M8 1.8 15 14H1L8 1.8Z" fill={color} />
+          <path d="M8 6v3.6M8 11.6v.1" stroke="white" strokeWidth="1.6" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <circle cx="8" cy="8" r="7" fill={color} />
+          <path
+            d={state === "online" ? "m4.8 8.2 2.1 2.1 4.3-4.5" : "m5.5 5.5 5 5m0-5-5 5"}
+            stroke="white"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </>
+      )}
+    </svg>
+  );
 }
 
-function BotStatusBadge({ lastSeen }: { lastSeen: string | null }) {
-  const online = isBotOnline(lastSeen);
-  const color = online ? STATUS_COLOR.successful : STATUS_COLOR.failed;
+function SystemCard({
+  name,
+  description,
+  status,
+  action,
+}: {
+  name: string;
+  description: string;
+  status: SystemStatus | null;
+  action?: React.ReactNode;
+}) {
+  const style = status ? SYSTEM_STATE_STYLE[status.state] : null;
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-      style={{ color, background: online ? "rgba(12,163,12,0.1)" : "rgba(208,59,59,0.1)" }}
-    >
-      <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-      Bot {online ? "online" : "offline"}
-    </span>
+    <li className="rounded-xl border border-line px-4 py-3" title={description}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-ink">{name}</p>
+        {status && style ? (
+          <span
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{ color: style.color, background: style.background }}
+          >
+            <SystemStateIcon state={status.state} color={style.color} />
+            {status.label}
+          </span>
+        ) : (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 text-xs font-medium text-graphite">
+            <span className="h-3.5 w-3.5 animate-pulse rounded-full bg-graphite/40" />
+            checking…
+          </span>
+        )}
+      </div>
+      <p className="mt-1.5 text-xs leading-snug text-graphite">
+        {status ? status.detail : description}
+      </p>
+      {action && <div className="mt-2">{action}</div>}
+    </li>
+  );
+}
+
+async function LiveSystemCard({
+  name,
+  description,
+  load,
+}: {
+  name: string;
+  description: string;
+  load: () => Promise<SystemStatus>;
+}) {
+  return <SystemCard name={name} description={description} status={await load()} />;
+}
+
+function SystemStatusPanel() {
+  const live = [
+    { name: "Bybit API", description: "Market prices and P2P rates", load: getBybitSystemStatus },
+    { name: "Telegram API", description: "Telegram reachable with the bot's token", load: getTelegramStatus },
+  ];
+  return (
+    <div className="rounded-2xl border border-line bg-white p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="font-display text-sm font-semibold text-ink">System status</p>
+        <AutoRefresh seconds={60} />
+      </div>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {live.map((s) => (
+          <Suspense
+            key={s.name}
+            fallback={<SystemCard name={s.name} description={s.description} status={null} />}
+          >
+            <LiveSystemCard {...s} />
+          </Suspense>
+        ))}
+        <SystemCard
+          name="Telegram bot"
+          description="The bot program answering customers"
+          status={getBotStatus()}
+        />
+        <SystemCard
+          name="Rate worker"
+          description="Refreshes coin prices from Bybit every 10 minutes"
+          status={getRateWorkerStatus()}
+        />
+        <SystemCard
+          name="Live rates"
+          description="Coins with a fresh rate the bot can quote"
+          status={getRatesStatus()}
+        />
+        <SystemCard
+          name="Rate channel"
+          description="The rate-updates bot posting live rates to the Telegram channel"
+          status={getRateChannelStatus()}
+          action={
+            <form action={postRatesNow}>
+              <button className="rounded-full border border-line px-2.5 py-0.5 text-xs text-graphite transition-colors hover:border-ink hover:text-ink">
+                Post rates now
+              </button>
+            </form>
+          }
+        />
+      </ul>
+    </div>
   );
 }
 
 // A scrolling tape of every active coin's current ORBITAL buy/sell rate —
 // the same `ticker-track` animation as the website's Rates strip. The
-// dashboard's AutoRefresh re-renders it every 30s, so it follows the rate
+// dashboard's AutoRefresh re-renders it every 60s, so it follows the rate
 // worker and any manual change without a reload.
 function RatesTicker() {
   const items = listRates().filter((a) => a.active && a.rate);
@@ -278,10 +406,15 @@ export default async function Dashboard({
   const { range } = await searchParams;
   const period = PERIODS.some((p) => p.key === range) ? (range as Period) : "30d";
   const periodLabel = PERIODS.find((p) => p.key === period)!.label;
+  // "in last 30d", but "all time" rather than "in last All".
+  const periodPhrase = period === "all" ? "all time" : `in last ${periodLabel}`;
   const granularity = period === "24h" ? "hour" : "day";
 
   const o = getOverview(period);
-  const series = period === "24h" ? getHourlySeries() : getDailySeries(PERIOD_DAYS[period]);
+  const series =
+    period === "24h"
+      ? getHourlySeries()
+      : getDailySeries(period === "all" ? daysSinceFirstRecord() : PERIOD_DAYS[period]);
   const trades = listTrades(6);
   const accounts = listAccounts(6);
   const assetBreakdown = getAssetBreakdown(period);
@@ -296,20 +429,9 @@ export default async function Dashboard({
 
   return (
     <div className="space-y-6">
-      <AutoRefresh />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl font-semibold text-ink">
-              Company overview
-            </h1>
-            <BotStatusBadge lastSeen={o.botLastSeen} />
-          </div>
-          <p className="text-sm text-graphite">
-            Last bot activity:{" "}
-            {o.botLastSeen ? ago(o.botLastSeen) : "none received yet"} · updates
-            every 30s
-          </p>
+          <h1 className="font-display text-2xl font-semibold text-ink">Company overview</h1>
         </div>
         <div className="flex gap-1 rounded-full border border-line bg-white p-1 text-sm">
           {PERIODS.map((p) => (
@@ -326,6 +448,8 @@ export default async function Dashboard({
         </div>
       </div>
 
+      <SystemStatusPanel />
+
       <RatesTicker />
 
       <RatesSummary />
@@ -334,7 +458,7 @@ export default async function Dashboard({
         <Tile
           label="Total accounts"
           value={o.totalAccounts.toLocaleString()}
-          hint={`+${o.newAccounts} in last ${periodLabel}`}
+          hint={`+${o.newAccounts} ${periodPhrase}`}
           trend={series.map((p) => p.accounts)}
         />
         <Tile

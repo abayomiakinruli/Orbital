@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "NODE_OPTIONS=--disable-warning=ExperimentalWarning next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_OPTIONS=--disable-warning=ExperimentalWarning next start",
     "lint": "eslint",
-    "bot": "tsx --env-file=.env.local backend/bot/index.ts",
-    "rate-worker": "tsx --env-file=.env.local backend/worker/rate-refresh.ts"
+    "bot": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx --env-file=.env.local backend/bot/index.ts",
+    "rate-worker": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx --env-file=.env.local backend/worker/rate-refresh.ts",
+    "rate-bot": "NODE_OPTIONS=--disable-warning=ExperimentalWarning tsx --env-file=.env.local backend/rateBot/index.ts",
+    "test": "tsx --test backend/*.test.ts"
   },
   "dependencies": {
     "grammy": "^1.46.0",

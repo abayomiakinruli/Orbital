@@ -19,7 +19,7 @@ export default function FinalCTA({
         </Reveal>
 
         <Reveal delayMs={80}>
-          <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-paper/70">
+          <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-white">
             {message}
           </p>
         </Reveal>

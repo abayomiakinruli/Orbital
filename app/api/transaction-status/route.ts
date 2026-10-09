@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { loginBlocked, recordLoginFailure } from "@/backend/auth";
+import { clientIp, loginBlocked, recordLoginFailure } from "@/backend/auth";
 import { getTradeByTransactionId } from "@/backend/repo";
 
 // Public, read-only lookup behind the website's Track ID section
@@ -20,8 +20,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const h = await headers();
-  const key = `track:${h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local"}`;
+  const key = `track:${clientIp(await headers())}`;
   if (loginBlocked(key)) {
     return Response.json(
       { error: "Too many lookups. Please wait 15 minutes or contact support." },

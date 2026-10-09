@@ -30,7 +30,7 @@ function Tag({ tag }: { tag: string }) {
           {tag}
         </span>
       )}
-      <span className="font-display text-xs tracking-[0.25em] text-paper/40 uppercase">
+      <span className="font-display text-xs tracking-[0.25em] text-white uppercase">
         ORBITAL Notice
       </span>
     </div>
@@ -97,7 +97,7 @@ function Slide({ slide, label }: { slide: NoticeSlide; label: string }) {
               </h3>
             )}
             {slide.message && (
-              <p className="max-w-2xl whitespace-pre-line text-lg leading-relaxed text-paper/70">
+              <p className="max-w-2xl whitespace-pre-line text-lg leading-relaxed text-white">
                 {slide.message}
               </p>
             )}
@@ -198,7 +198,7 @@ export default function NoticeCarousel({ slides }: { slides: NoticeSlide[] }) {
         onPointerDown={hold}
         onWheel={hold}
         onTouchStart={hold}
-        className={`no-scrollbar flex snap-x snap-mandatory items-stretch overflow-x-auto overscroll-x-contain md:h-[26rem] ${
+        className={`no-scrollbar flex snap-x snap-mandatory items-stretch overflow-x-auto overscroll-x-contain md:h-104 ${
           count > 1 ? "opacity-0 transition-opacity duration-300 data-[ready=true]:opacity-100" : ""
         }`}
       >

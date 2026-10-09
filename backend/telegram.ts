@@ -1,3 +1,8 @@
+// Telegram's HTML parse mode needs these three characters escaped in any text
+// that isn't meant as markup (names, addresses, anything a customer typed).
+export const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 // Sends a Telegram message as the ORBITAL bot from the web server (e.g.
 // when an admin marks a trade done), using the same bot token as
 // backend/bot/index.ts. Failures are logged, never thrown: a status change must

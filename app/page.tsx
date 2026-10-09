@@ -1,12 +1,9 @@
 import Navbar from "@/frontend/components/Navbar";
 import Hero from "@/frontend/components/Hero";
 import About from "@/frontend/components/About";
-import Services from "@/frontend/components/Services";
 import Assets from "@/frontend/components/Assets";
-import WhyOrbital from "@/frontend/components/WhyOrbital";
 import OrbitalNotice from "@/frontend/components/OrbitalNotice";
 import Updates from "@/frontend/components/Updates";
-import FAQ from "@/frontend/components/FAQ";
 import FinalCTA from "@/frontend/components/FinalCTA";
 import Footer from "@/frontend/components/Footer";
 import { getPublicRates } from "@/backend/rates";
@@ -17,6 +14,8 @@ import { getNoticeSlides, getPublicUpdates } from "@/backend/site";
 // than once at build time.
 export const dynamic = "force-dynamic";
 
+// Kept deliberately short: what ORBITAL is, today's rates, and anything the
+// team has posted. Everything else lives on its own page.
 export default function Home() {
   return (
     <>
@@ -24,12 +23,9 @@ export default function Home() {
       <main className="relative isolate">
         <Hero />
         <About />
-        <Services />
-        <OrbitalNotice slides={getNoticeSlides()} />
-        <WhyOrbital />
-        <Updates updates={getPublicUpdates()} />
         <Assets initialRates={getPublicRates()} />
-        <FAQ />
+        <OrbitalNotice slides={getNoticeSlides()} />
+        <Updates updates={getPublicUpdates()} />
         <FinalCTA />
       </main>
       <Footer />

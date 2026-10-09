@@ -15,8 +15,41 @@ CREATE TABLE IF NOT EXISTS accounts (
   country TEXT,
   status TEXT NOT NULL DEFAULT 'active',
   source TEXT NOT NULL DEFAULT 'bot',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  preferred_name TEXT,
+  last_activity_at TEXT,
+  -- When this customer accepted the Terms of Service in the bot; NULL until
+  -- they do. Asked once, not on every trade.
+  terms_accepted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS customer_bank_accounts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  account_name_encrypted TEXT NOT NULL,
+  account_number_encrypted TEXT NOT NULL,
+  bank_name_encrypted TEXT NOT NULL,
+  account_last_four TEXT NOT NULL,
+  is_default INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_customer_banks_customer ON customer_bank_accounts(customer_id, is_default, id);
+
+CREATE TABLE IF NOT EXISTS customer_wallet_addresses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  asset TEXT NOT NULL,
+  network TEXT,
+  address_encrypted TEXT NOT NULL,
+  address_label_encrypted TEXT,
+  address_preview TEXT NOT NULL,
+  is_default INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_customer_wallets_customer_asset_network ON customer_wallet_addresses(customer_id, asset, network, is_default, id);
 
 CREATE TABLE IF NOT EXISTS trades (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,6 +106,7 @@ CREATE TABLE IF NOT EXISTS rates (
   -- Cleared on a successful refresh. buy_rate/sell_rate/updated_at are left
   -- untouched on failure — the old rate stands until a refresh succeeds.
   last_refresh_attempt_at TEXT,
+  last_refresh_failure_at TEXT,
   last_refresh_error TEXT,
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_by TEXT
@@ -120,6 +154,15 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
+);
+
+-- A short database lease ensures a crash-safe single refresh loop even if a
+-- process manager accidentally starts a second worker. The lease expires, so
+-- a dead worker can never block rate updates permanently.
+CREATE TABLE IF NOT EXISTS rate_refresh_leases (
+  name TEXT PRIMARY KEY,
+  owner TEXT NOT NULL,
+  expires_at TEXT NOT NULL
 );
 
 -- A quote the bot issued to a customer: a short-lived snapshot of a rate,
@@ -192,6 +235,29 @@ CREATE TABLE IF NOT EXISTS subscribers (
   source TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Per-coin margin overrides, edited at /admin/margins. A NULL column means
+-- "use the default margin" (getMarginSettings); the margin mode itself is
+-- always the global one. See backend/repo.ts's marginTierFor.
+CREATE TABLE IF NOT EXISTS coin_margins (
+  asset_symbol TEXT PRIMARY KEY,
+  buy REAL,
+  sell REAL,
+  bulk_buy REAL,
+  bulk_sell REAL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Bugs reported from the website's /report-bug page. Listed at /admin/bugs.
+-- page = the page the form was submitted from.
+CREATE TABLE IF NOT EXISTS bug_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  message TEXT NOT NULL,
+  page TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE INDEX IF NOT EXISTS idx_events_type_created ON events(type, created_at);
 CREATE INDEX IF NOT EXISTS idx_asset_addresses_symbol ON asset_addresses(asset_symbol, sort_order);
 CREATE INDEX IF NOT EXISTS idx_quotes_quote_id ON quotes(quote_id);
@@ -233,6 +299,13 @@ export function getDb(): DatabaseSync {
       ),
     );
 
+    const accountCols = new Set(
+      (db.prepare("PRAGMA table_info(accounts)").all() as { name: string }[]).map((c) => c.name),
+    );
+    for (const col of ["preferred_name", "last_activity_at", "updated_at", "terms_accepted_at"]) {
+      if (!accountCols.has(col)) db.exec(`ALTER TABLE accounts ADD COLUMN ${col} TEXT`);
+    }
+
     // Columns added after trades already existed on disk. SQLite has no
     // "ADD COLUMN IF NOT EXISTS", so check first. `transaction_id` and the
     // new status set need a full table rebuild (SQLite can't ALTER a CHECK
@@ -253,7 +326,7 @@ export function getDb(): DatabaseSync {
     for (const col of ["margin_buy", "margin_sell", "reference_rate", "reference_usdt_price"]) {
       if (!rateCols.has(col)) db.exec(`ALTER TABLE rates ADD COLUMN ${col} REAL`);
     }
-    for (const col of ["last_refresh_attempt_at", "last_refresh_error"]) {
+    for (const col of ["last_refresh_attempt_at", "last_refresh_failure_at", "last_refresh_error"]) {
       if (!rateCols.has(col)) db.exec(`ALTER TABLE rates ADD COLUMN ${col} TEXT`);
     }
 
@@ -347,10 +420,27 @@ export function getDb(): DatabaseSync {
         "INSERT INTO assets (symbol, name, active, sort_order) VALUES (?, ?, 1, ?)",
       );
       [
-        ["USDT", "Tether"],
-        ["BTC", "Bitcoin"],
-        ["SOL", "Solana"],
+      ["USDT", "Tether"],
+      ["BTC", "Bitcoin"],
+      ["ETH", "Ethereum"],
+      ["SOL", "Solana"],
       ].forEach(([symbol, name], i) => insertAsset.run(symbol, name, i));
+    }
+    // An earlier version added Ethereum Classic (ETC) here by mistake: the
+    // coin ORBITAL trades is Ethereum (ETH). Remove that row where it is
+    // still the untouched automatic one (no rate, deposit address or trade),
+    // so it stops showing as an active coin the bot can't quote. One an
+    // admin has actually set up is left alone.
+    try {
+      db.prepare(
+        `DELETE FROM assets
+         WHERE symbol = 'ETC' AND name = 'Ethereum Classic'
+           AND NOT EXISTS (SELECT 1 FROM rates WHERE asset_symbol = 'ETC')
+           AND NOT EXISTS (SELECT 1 FROM asset_addresses WHERE asset_symbol = 'ETC')
+           AND NOT EXISTS (SELECT 1 FROM trades WHERE asset = 'ETC')`,
+      ).run();
+    } catch {
+      // Something else still refers to it; leave it for an admin to review.
     }
 
     // One-time carry-over from the old single-asset manual rate (stored as

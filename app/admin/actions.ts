@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { sendTelegramMessage } from "@/backend/telegram";
 import { tradeOutcomeMessage } from "@/backend/tradeMessages";
+import { postRatesToChannel } from "@/backend/rateChannel";
 import {
+  clientIp,
   checkPassword,
   createSession,
   destroySession,
@@ -15,16 +17,23 @@ import {
 } from "@/backend/auth";
 import {
   ValidationError,
+  acquireRateRefreshLease,
   addAssetAddress as repoAddAssetAddress,
   createTrade,
   deleteAssetAddress as repoDeleteAssetAddress,
   deleteAnnouncement,
   deleteSubscriber,
+  deleteBugReport,
+  setBugReportStatus,
   getTradeNotifyInfo,
   setAssetActive,
   setNoticeEnabled,
   upsertAnnouncement,
   setMarginSettings,
+  setCoinMargin,
+  clearCoinMargin,
+  getRate,
+  listAssets,
   setPaymentAccount,
   setRate,
   setRateMode,
@@ -32,13 +41,15 @@ import {
   updateTradeStatus,
   upsertAccount,
   upsertAsset,
+  releaseRateRefreshLease,
 } from "@/backend/repo";
+import { refreshAssetRateNow, usdtNgnReference } from "@/backend/rateEngine";
+import { randomUUID } from "node:crypto";
 
 export type FormState = { error?: string; ok?: string };
 
 export async function login(_: FormState, formData: FormData): Promise<FormState> {
-  const h = await headers();
-  const key = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const key = clientIp(await headers());
   if (loginBlocked(key)) {
     return { error: "Too many attempts. Try again in 15 minutes." };
   }
@@ -159,10 +170,53 @@ export async function setAssetRateMode(formData: FormData) {
   );
 }
 
+// Admin-only manual refresh. It takes the same database lease as the worker,
+// so this can never run beside a scheduled refresh against the same rates.
+export async function refreshAutoRatesNow(): Promise<FormState> {
+  if (!(await isAdmin())) return { error: "Session expired. Log in again." };
+  const owner = `admin-${process.pid}-${randomUUID()}`;
+  if (!acquireRateRefreshLease(owner, Number(process.env.RATE_REFRESH_LOCK_SECONDS ?? 300))) {
+    return { error: "A scheduled refresh is already running. Try again shortly." };
+  }
+  try {
+    const assets = listAssets().filter((asset) => asset.active && getRate(asset.symbol)?.mode === "auto");
+    if (assets.length === 0) return { error: "No active assets are set to auto pricing." };
+    const usdtNgn = await usdtNgnReference();
+    let refreshed = 0;
+    for (const asset of assets) {
+      try {
+        await refreshAssetRateNow(asset.symbol, usdtNgn);
+        refreshed += 1;
+      } catch (error) {
+        console.error(`[admin] ${asset.symbol} manual refresh failed:`, error instanceof Error ? error.message : error);
+      }
+    }
+    revalidatePath("/admin", "layout");
+    revalidatePath("/");
+    return refreshed > 0
+      ? { ok: `Refreshed ${refreshed}/${assets.length} auto-priced asset(s).` }
+      : { error: "Bybit did not return a valid rate. Existing customer rates were kept." };
+  } catch (error) {
+    console.error("[admin] manual rate refresh failed:", error instanceof Error ? error.message : error);
+    return { error: "Rate refresh failed. Existing customer rates were kept." };
+  } finally {
+    releaseRateRefreshLease(owner);
+  }
+}
+
+export async function refreshAutoRates(
+  _: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  void formData;
+  return refreshAutoRatesNow();
+}
+
 export async function saveMarginSettings(
   _: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const modeLabel = formData.get("mode") === "fixed" ? "fixed ₦ per $1" : "percentage";
   return guard(
     () =>
       setMarginSettings({
@@ -173,8 +227,30 @@ export async function saveMarginSettings(
         bulkSellMargin: formData.get("bulkSellMargin"),
         bulkThresholdNgn: formData.get("bulkThresholdNgn"),
       }),
-    "Margin settings saved. Picked up by the rate-refresh worker on its next tick.",
+    `Saved in ${modeLabel} mode. Picked up by the rate-refresh worker on its next tick.`,
   );
+}
+
+// Per-coin margin overrides (/admin/margins). Blank fields use the default.
+export async function saveCoinMargin(
+  _: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const symbol = String(formData.get("symbol") ?? "").toUpperCase();
+  return guard(
+    () =>
+      setCoinMargin(symbol, {
+        buy: formData.get("buy"),
+        sell: formData.get("sell"),
+        bulkBuy: formData.get("bulkBuy"),
+        bulkSell: formData.get("bulkSell"),
+      }),
+    `${symbol} margins saved. Its rate updates on the next refresh (within 10 minutes).`,
+  );
+}
+
+export async function resetCoinMargin(formData: FormData) {
+  await guard(() => clearCoinMargin(formData.get("symbol")), "Reset to default.");
 }
 
 export async function addAsset(
@@ -287,4 +363,20 @@ export async function removeUpdate(formData: FormData) {
 
 export async function removeSubscriber(formData: FormData) {
   await guard(() => deleteSubscriber(formData.get("id")), "Removed.");
+}
+
+// The dashboard's "Post now" on the Rate channel card. The outcome shows on
+// the card itself (backend/rateChannel.ts records every post).
+export async function postRatesNow() {
+  if (!(await isAdmin())) return;
+  await postRatesToChannel();
+  revalidatePath("/admin");
+}
+
+export async function markBugReport(formData: FormData) {
+  await guard(() => setBugReportStatus(formData.get("id"), formData.get("status")), "Updated.");
+}
+
+export async function removeBugReport(formData: FormData) {
+  await guard(() => deleteBugReport(formData.get("id")), "Removed.");
 }

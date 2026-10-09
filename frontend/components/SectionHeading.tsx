@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import Reveal from "@/frontend/components/Reveal";
 
 interface SectionHeadingProps {
-  index: string;
   label: string;
   title: string;
   tone?: "light" | "dark";
@@ -11,14 +10,13 @@ interface SectionHeadingProps {
 }
 
 export default function SectionHeading({
-  index,
   label,
   title,
   tone = "light",
   align = "left",
   children,
 }: SectionHeadingProps) {
-  const muted = tone === "dark" ? "text-paper/50" : "text-graphite";
+  const muted = tone === "dark" ? "text-white" : "text-[#1d8a55]";
   const heading = tone === "dark" ? "text-paper" : "text-ink";
 
   return (
@@ -27,7 +25,7 @@ export default function SectionHeading({
         <p
           className={`font-display text-xs font-medium tracking-[0.25em] uppercase ${muted}`}
         >
-          {index} / {label}
+          {label}
         </p>
       </Reveal>
       <Reveal delayMs={80}>
@@ -39,7 +37,7 @@ export default function SectionHeading({
       </Reveal>
       {children ? (
         <Reveal delayMs={160}>
-          <div className={`mt-6 text-lg leading-relaxed ${tone === "dark" ? "text-paper/70" : "text-graphite"}`}>
+          <div className={`mt-6 text-lg leading-relaxed ${tone === "dark" ? "text-white" : "text-graphite"}`}>
             {children}
           </div>
         </Reveal>

@@ -9,7 +9,7 @@ export default function PriceChange({ change }: { change: number | null | undefi
   return (
     <span
       className={`inline-flex items-center gap-1 text-sm tabular-nums ${
-        flat ? "text-paper/60" : up ? "text-accent" : "text-[#e66767]"
+        flat ? "text-white" : up ? "text-accent" : "text-[#e66767]"
       }`}
       title="Change over the last 24 hours"
     >

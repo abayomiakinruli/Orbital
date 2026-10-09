@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import type { Candle } from "@/backend/bybit";
+import { nairaShort } from "@/frontend/lib/format";
 
 // One rate series over time (e.g. ORBITAL's USDT/NGN buy rate from
 // rate_ticks), styled after Apple's Stocks chart: the whole line takes the
@@ -18,8 +19,6 @@ const PAD = { top: 16, right: 64, bottom: 26, left: 4 };
 const UP = "#0ca30c";
 const DOWN = "#d03b3b";
 
-const naira = (n: number) =>
-  `₦${n.toLocaleString("en-US", { maximumFractionDigits: n >= 1000 ? 0 : 2 })}`;
 const nairaExact = (n: number) =>
   `₦${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const shortHour = (ms: number) =>
@@ -124,7 +123,7 @@ export default function PriceChart({
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`${title}, currently ${naira(last)}, ${up ? "up" : "down"} ${Math.abs(((last - open) / open) * 100).toFixed(2)}% over the period`}
+        aria-label={`${title}, currently ${nairaShort(last)}, ${up ? "up" : "down"} ${Math.abs(((last - open) / open) * 100).toFixed(2)}% over the period`}
         className="mt-3 block w-full touch-none"
         onPointerMove={onMove}
         onPointerLeave={() => setHover(null)}
@@ -153,7 +152,7 @@ export default function PriceChart({
               fontSize={11}
               fill="var(--color-graphite)"
             >
-              {naira(t)}
+              {nairaShort(t)}
             </text>
           </g>
         ))}

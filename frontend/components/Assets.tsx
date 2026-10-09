@@ -1,23 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
 import SectionHeading from "@/frontend/components/SectionHeading";
 import Reveal from "@/frontend/components/Reveal";
+import { PayoutIllustration } from "@/frontend/components/Illustrations";
 import PriceChange from "@/frontend/components/PriceChange";
 import { orbitalConfig } from "@/config/orbital";
+import { useLiveRates } from "@/frontend/lib/useLiveRates";
 import type { PublicRates } from "@/backend/rates";
 
 // ORBITAL's own rates — the ones set/refreshed in the admin panel and
-// quoted by the bot — not a third-party market feed. Rendered on the server
-// first, then re-polled so an open page keeps up with the rate worker.
-const REFRESH_MS = 60_000;
-
-function naira(value: number) {
-  return `₦${value.toLocaleString("en-US", {
-    maximumFractionDigits: value >= 1000 ? 0 : 2,
-  })}`;
-}
+// quoted by the bot — not a third-party market feed (kept fresh by
+// frontend/lib/useLiveRates.ts).
 
 function dollars(value: number) {
   return `$${value.toLocaleString("en-US", {
@@ -48,66 +41,50 @@ function LiveClock() {
 type TickerItem = { key: string; code: string; value: string; change?: number | null };
 
 export default function Assets({ initialRates }: { initialRates: PublicRates }) {
-  const [data, setData] = useState(initialRates);
-
-  useEffect(() => {
-    let cancelled = false;
-    const id = setInterval(async () => {
-      try {
-        const res = await fetch("/api/rates", { cache: "no-store" });
-        if (!res.ok) return;
-        const next = (await res.json()) as PublicRates;
-        if (!cancelled) setData(next);
-      } catch {
-        // Keep showing the last good rates on a failed refresh.
-      }
-    }, REFRESH_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
+  const { data } = useLiveRates(initialRates);
 
   // ORBITAL's rates are stored in naira; shown here in dollars, converted
   // at the USD/NGN reference. Without that reference there's no honest
   // conversion, so the asset rates are left out rather than guessed.
   const usdNgn = data.usdNgn;
   const tickerItems: TickerItem[] = usdNgn
-    ? [
-        { key: "USDNGN", code: "USD/NGN", value: naira(usdNgn) },
-        // One figure per asset: the middle of ORBITAL's buy and sell rates.
-        ...data.rates.map((r) => ({
-          key: r.symbol,
-          code: r.symbol,
-          value: dollars((r.buy + r.sell) / 2 / usdNgn),
-          change: r.change,
-        })),
-      ]
+    ? // One figure per asset: the middle of ORBITAL's buy and sell rates.
+      // The USD/NGN reference itself is used for the conversion but not shown.
+      data.rates.map((r) => ({
+        key: r.symbol,
+        code: r.symbol,
+        value: dollars((r.buy + r.sell) / 2 / usdNgn),
+        change: r.change,
+      }))
     : [];
 
   return (
-    <section id="assets" className="bg-paper-dim py-28 sm:py-36">
+    <section id="assets" className="bg-white py-28 sm:py-36">
       <div className="mx-auto max-w-7xl px-6 lg:px-10">
-        <SectionHeading
-          index="05"
-          label="Supported Assets"
-          title="Four coins, with more on the way."
-        >
-          <p>
-            Live ORBITAL rates in US dollars, refreshed through the day. The bot
-            confirms your exact rate before you pay.
-          </p>
-        </SectionHeading>
+        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:gap-16">
+          <SectionHeading
+            label="Supported Assets"
+            title="Four coins, with more on the way."
+          >
+            <p>
+              Live ORBITAL rates in US dollars, refreshed through the day. The bot
+              confirms your exact rate before you pay.
+            </p>
+          </SectionHeading>
+
+          <Reveal from="right" delayMs={140}>
+            <PayoutIllustration className="mx-auto h-auto w-full max-w-sm" />
+          </Reveal>
+        </div>
 
         <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
           {orbitalConfig.assets.map((asset, i) => (
-            <Reveal key={asset.ticker} delayMs={i * 80}>
-              <article className="flex h-full flex-col rounded-2xl border border-line bg-paper p-8 transition-colors duration-300 hover:border-ink">
-                <span className="font-display text-sm text-graphite">{asset.ticker}</span>
+            <Reveal key={asset.ticker} delayMs={i * 70}>
+              <article className="flex h-full flex-col rounded-2xl card-lift border border-line bg-surface p-8 transition-colors duration-300 hover:border-ink">
+                <span className="font-display text-sm font-medium text-[#1d8a55]">{asset.ticker}</span>
                 <h3 className="mt-6 font-display text-2xl font-medium tracking-tight text-ink">
                   {asset.name}
                 </h3>
-                <p className="mt-4 text-base leading-relaxed text-graphite">{asset.description}</p>
               </article>
             </Reveal>
           ))}
@@ -140,21 +117,10 @@ export default function Assets({ initialRates }: { initialRates: PublicRates }) 
                 </div>
               </div>
             ) : (
-              <p className="px-5 py-6 text-sm text-paper/60">
+              <p className="px-5 py-6 text-sm text-white">
                 Rates are refreshing. The bot always has today&apos;s rate.
               </p>
             )}
-          </div>
-        </Reveal>
-
-        <Reveal delayMs={220}>
-          <div className="mt-8">
-            <Link
-              href={orbitalConfig.tradePage}
-              className="inline-flex items-center justify-center rounded-full bg-ink px-7 py-3.5 text-sm font-medium text-paper transition-colors hover:bg-accent hover:text-accent-ink"
-            >
-              Trade with ORBITAL
-            </Link>
           </div>
         </Reveal>
       </div>

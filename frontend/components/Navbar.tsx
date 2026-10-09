@@ -12,7 +12,6 @@ import { orbitalConfig } from "@/config/orbital";
 // (e.g. /how-it-works), not just the homepage.
 const navLinks = [
   { label: "Explore", href: "/#about" },
-  { label: "Trust", href: "/#why-orbital" },
   { label: "Updates", href: "/#updates" },
   { label: "Rates", href: "/#assets" },
   { label: "How It Works", href: "/how-it-works" },
@@ -45,11 +44,11 @@ export default function Navbar() {
   // home there); on every other page, or once scrolled, it stays visible.
   const pathname = usePathname();
   const showHome = solid || pathname !== "/";
-  const textColor = solid ? "text-ink/70" : "text-paper/70";
-  const textHover = solid ? "hover:text-[#1d8a55]" : "hover:text-white";
+  const textColor = solid ? "text-ink/70" : "text-white";
+  const textHover = solid ? "hover:text-[#1d8a55]" : "hover:text-accent";
   const borderColor = solid ? "border-ink/30" : "border-paper/30";
-  const barColor = solid ? "bg-ink" : "bg-paper";
-  const barHover = solid ? "group-hover:bg-[#1d8a55]" : "group-hover:bg-white";
+  const barColor = solid ? "bg-ink" : "bg-white";
+  const barHover = solid ? "group-hover:bg-[#1d8a55]" : "group-hover:bg-accent";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -69,7 +68,7 @@ export default function Navbar() {
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-colors duration-500 ${
         scrolled || open
-          ? "border-b border-line bg-paper/90 backdrop-blur-md"
+          ? "border-b border-line bg-white/90 backdrop-blur-md"
           : "bg-transparent"
       }`}
     >
@@ -149,17 +148,17 @@ export default function Navbar() {
           <span className="relative block h-4 w-6">
             <span
               className={`absolute left-0 top-0 h-[1.5px] w-full transition-[transform,background-color] duration-300 ${barColor} ${barHover} ${
-                open ? "translate-y-[7px] rotate-45" : ""
+                open ? "translate-y-1.75 rotate-45" : ""
               }`}
             />
             <span
-              className={`absolute left-0 top-[7px] h-[1.5px] w-full transition-[opacity,background-color] duration-300 ${barColor} ${barHover} ${
+              className={`absolute left-0 top-1.75 h-[1.5px] w-full transition-[opacity,background-color] duration-300 ${barColor} ${barHover} ${
                 open ? "opacity-0" : "opacity-100"
               }`}
             />
             <span
-              className={`absolute left-0 top-[14px] h-[1.5px] w-full transition-[transform,background-color] duration-300 ${barColor} ${barHover} ${
-                open ? "-translate-y-[7px] -rotate-45" : ""
+              className={`absolute left-0 top-3.5 h-[1.5px] w-full transition-[transform,background-color] duration-300 ${barColor} ${barHover} ${
+                open ? "-translate-y-1.75 -rotate-45" : ""
               }`}
             />
           </span>
@@ -168,10 +167,10 @@ export default function Navbar() {
 
       <div
         className={`overflow-hidden transition-[max-height,opacity] duration-500 md:hidden ${
-          open ? "max-h-[38rem] opacity-100" : "max-h-0 opacity-0"
+          open ? "max-h-152 opacity-100" : "max-h-0 opacity-0"
         }`}
       >
-        <div className="flex flex-col gap-1 border-t border-line bg-paper px-6 pb-8 pt-4">
+        <div className="flex flex-col gap-1 border-t border-line bg-white px-6 pb-8 pt-4">
           {navLinks.map((link) => (
             <Link
               key={link.href}

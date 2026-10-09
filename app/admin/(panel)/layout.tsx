@@ -7,8 +7,10 @@ const links = [
   { href: "/admin/accounts", label: "Accounts" },
   { href: "/admin/trades", label: "Trades" },
   { href: "/admin/rates", label: "Assets & Rates" },
+  { href: "/admin/margins", label: "Margins" },
   { href: "/admin/announcements", label: "Announcements" },
   { href: "/admin/subscribers", label: "Subscribers" },
+  { href: "/admin/bugs", label: "Bug reports" },
 ];
 
 export default async function PanelLayout({
