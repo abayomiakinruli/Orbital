@@ -46,5 +46,8 @@ next-env.d.ts
 
 # Local tooling and the separately created GitHub starter repo
 /Orbital/
-/.claude/settings.local.json
+/.claude/
 /.kilo/
+
+# Brand files, adverts and working documents kept beside the code
+/.assets/
