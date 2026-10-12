@@ -44,7 +44,7 @@ export default function Hero() {
 
           <div className="hero-fade mt-8 max-w-md" style={{ animationDelay: "420ms" }}>
             <p className="text-lg leading-relaxed text-white">
-              Buy and sell BTC, USDT, USDC and SOL at clear naira rates, through a
+              Buy and sell BTC, ETH, USDT, USDC and SOL at clear naira rates, through a
               fast Telegram bot, with real people on WhatsApp behind it.
             </p>
           </div>

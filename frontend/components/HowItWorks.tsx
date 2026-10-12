@@ -22,7 +22,7 @@ const steps = [
   {
     index: "04",
     title: "Choose your asset",
-    description: "Pick the cryptocurrency you want to trade: BTC, USDT, USDC or SOL.",
+    description: "Pick the cryptocurrency you want to trade: BTC, ETH, USDT, USDC or SOL.",
   },
   {
     index: "05",

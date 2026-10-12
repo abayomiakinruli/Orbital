@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { newUserMenu, profileKeyboard, returningCustomerMenu, settingsMenu } from "./bot/index";
+import { newUserMenu, profileKeyboard, returningCustomerMenu, settingsMenu, supportKeyboard } from "./bot/index";
 import { checkPreferredName } from "./validate";
 
 type Keyboard = { inline_keyboard: { text: string }[][] };
@@ -23,6 +23,16 @@ test("returning customers get the same main menu", () => {
 
 test("the profile leads to edit details, support and back", () => {
   assert.deepEqual(buttonLabels(profileKeyboard()), ["Edit details", "Customer Support", "Back"]);
+});
+
+test("customer support offers five reasons, Other and back, each with a drafted message", () => {
+  const menu = supportKeyboard() as unknown as { inline_keyboard: { text: string; url?: string }[][] };
+  const buttons = menu.inline_keyboard.flat();
+  assert.equal(buttons.length, 7);
+  assert.deepEqual(buttons.slice(-2).map((b) => b.text), ["Other", "Back"]);
+  for (const button of buttons.slice(0, 6)) {
+    assert.match(button.url ?? "", /^https:\/\/wa\.me\/\d+\?text=Hello%20ORBITAL%20Support/);
+  }
 });
 
 test("edit details offers name change, bank and address removal, and back", () => {

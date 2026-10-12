@@ -2,7 +2,8 @@ import { getPublicRates } from "@/backend/rates";
 import { clientIp, requestAllowed } from "@/backend/auth";
 
 // Public, read-only: ORBITAL's current rates for the website's Rates
-// section, which polls this to stay current. The same figures the bot's
+// section. The site no longer polls this (its ticker now shows the global
+// market, app/api/market); kept as a public feed of the same figures the bot's
 // "See today's rates" shows anyone, so nothing here is private.
 export const dynamic = "force-dynamic";
 

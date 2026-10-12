@@ -1,5 +1,4 @@
 // Central configuration for ORBITAL contact links and dynamic content.
-// Replace the placeholder values below with real ORBITAL channels.
 // This object is the single source of truth for every CTA on the site —
 // update it here and the whole site updates with it.
 
@@ -30,6 +29,34 @@ export const orbitalConfig = {
   whatsapp: "https://wa.me/2348153978826",
   whatsappDisplay: "+234 815 397 8826",
 
+  // Why people usually contact support. The website's Support page and the
+  // bot's Customer Support menu both list these; choosing one opens WhatsApp
+  // with `message` already typed, ready for the customer to finish and send.
+  supportReasons: [
+    {
+      label: "My payment hasn't arrived",
+      message: "Hello ORBITAL Support, I completed a trade but my payment hasn't arrived. My Transaction ID is: ",
+    },
+    {
+      label: "My trade is taking too long",
+      message: "Hello ORBITAL Support, my trade is taking longer than expected. My Transaction ID is: ",
+    },
+    {
+      label: "I sent the wrong amount or details",
+      message: "Hello ORBITAL Support, I made a mistake with the amount or details on my trade. My Transaction ID is: ",
+    },
+    {
+      label: "I have a question about rates",
+      message: "Hello ORBITAL Support, I have a question about your rates.",
+    },
+    {
+      label: "I need help using the bot",
+      message: "Hello ORBITAL Support, I need help using the Telegram bot.",
+    },
+  ],
+  // The "Other" choice, for anything not on the list.
+  supportOtherMessage: "Hello ORBITAL Support, I need your help with: ",
+
   // The site's own Trade and Support pages. Every Trade / Support button on
   // the website leads here first; only these pages link out to Telegram
   // and WhatsApp.
@@ -52,7 +79,7 @@ export const orbitalConfig = {
     tag: "IMPORTANT UPDATE",
     title: "ORBITAL is now live.",
     message:
-      "You can now buy and sell BTC, USDT, USDC and SOL through the official ORBITAL Telegram trading bot, with clear rates, simple steps, and support on WhatsApp whenever you need it.",
+      "You can now buy and sell BTC, ETH, USDT, USDC and SOL through the official ORBITAL Telegram trading bot, with clear rates, simple steps, and support on WhatsApp whenever you need it.",
     buttonText: "Trade with ORBITAL",
     buttonUrl: "/trade",
   },
@@ -66,6 +93,11 @@ export const orbitalConfig = {
       name: "Bitcoin",
       description:
         "A decentralized digital asset and one of the primary cryptocurrencies ORBITAL supports.",
+    },
+    {
+      ticker: "ETH",
+      name: "Ethereum",
+      description: "The native cryptocurrency of the Ethereum blockchain.",
     },
     {
       ticker: "USDT",
@@ -90,25 +122,35 @@ export const orbitalConfig = {
   // trading notices, or support updates as they happen.
   updates: [
     {
-      tag: "Announcement",
-      date: "2026.09",
-      title: "ORBITAL is now live.",
+      tag: "Coming Soon",
+      date: "Roadmap",
+      title: "The ORBITAL app.",
       description:
-        "Buy and sell BTC, USDT, USDC and SOL through the ORBITAL Telegram trading bot, with support on WhatsApp whenever you need it.",
+        "A dedicated ORBITAL mobile app is on the way, so you can trade and track from your phone.",
     },
     {
       tag: "Coming Soon",
       date: "Roadmap",
-      title: "The ORBITAL web platform & app.",
+      title: "User login.",
       description:
-        "A customer dashboard for your transactions, rates, trade history and account, followed by a dedicated ORBITAL mobile app.",
+        "Sign in to your own ORBITAL account to see your trades and details in one place.",
     },
     {
       tag: "Coming Soon",
       date: "Roadmap",
-      title: "More assets & referrals.",
+      title: "Community chat.",
       description:
-        "Support for more cryptocurrencies beyond BTC, USDT, USDC and SOL, plus a referral program for introducing new customers to ORBITAL.",
+        "A space to talk with other ORBITAL customers and hear from the team.",
     },
   ] satisfies OrbitalUpdate[],
 } as const;
+
+// A WhatsApp support link that opens the chat with `message` already typed.
+export const supportLink = (message: string) =>
+  `${orbitalConfig.whatsapp}?text=${encodeURIComponent(message)}`;
+
+// Every support choice in order: the listed reasons, then "Other".
+export const supportChoices = [
+  ...orbitalConfig.supportReasons,
+  { label: "Other", message: orbitalConfig.supportOtherMessage },
+].map((choice) => ({ label: choice.label, url: supportLink(choice.message) }));

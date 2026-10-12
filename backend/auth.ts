@@ -67,7 +67,7 @@ export function isBotRequest(request: Request): boolean {
 
 // The caller's IP, as the key for the limiters below. Read from
 // X-Forwarded-For, which the reverse proxy overwrites with the real address
-// (see .claude/DEPLOY.md); "local" when there is no proxy in front.
+// (see DEPLOY.md); "local" when there is no proxy in front.
 export function clientIp(headers: Headers): string {
   return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 }

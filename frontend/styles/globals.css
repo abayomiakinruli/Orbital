@@ -336,9 +336,15 @@ html[data-splash-done] .splash {
   }
 }
 
-/* Live price ticker tape */
+/* Market ticker tape: two copies of the list side by side, slid left by one
+   copy so the loop has no seam. Pauses under the pointer or keyboard focus. */
 .ticker-track {
-  animation: ticker-scroll 26s linear infinite;
+  animation: ticker-scroll 90s linear infinite;
+}
+
+.ticker-viewport:hover .ticker-track,
+.ticker-viewport:focus-visible .ticker-track {
+  animation-play-state: paused;
 }
 
 @keyframes ticker-scroll {
@@ -346,7 +352,7 @@ html[data-splash-done] .splash {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-25%);
+    transform: translateX(-50%);
   }
 }
 
@@ -397,6 +403,15 @@ html[data-splash-done] .splash {
   .live-pulse,
   .clock-hand {
     animation: none;
+  }
+
+  /* With the tape still, let it be scrolled by hand and drop the copy. */
+  .ticker-viewport {
+    overflow-x: auto;
+  }
+
+  .ticker-copy {
+    display: none;
   }
 
   *,

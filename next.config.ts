@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 // Sent with every response. HSTS only in production, where the site is
-// always behind HTTPS (see .claude/DEPLOY.md); it deliberately leaves out
+// always behind HTTPS (see DEPLOY.md); it deliberately leaves out
 // includeSubDomains so it can't break another service on a subdomain.
 const securityHeaders = [
   // The site is never meant to be shown inside another site's frame.

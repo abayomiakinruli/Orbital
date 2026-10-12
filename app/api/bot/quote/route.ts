@@ -1,6 +1,6 @@
 import { isBotRequest } from "@/backend/auth";
 import { createQuote, getMarginSettings, getRate, marginTierFor, touchBot } from "@/backend/repo";
-import { classifyRateStatus } from "@/backend/rateEngine";
+import { classifyRateStatus, conversionCostPercent } from "@/backend/rateEngine";
 import { priceAsset } from "@/backend/margin";
 
 // GET /api/bot/quote?symbol=USDT&side=buy&ngn_amount=50000[&hold=sell]
@@ -55,7 +55,12 @@ export async function GET(request: Request) {
     }
     const usdtPrice = symbol === "USDT" ? 1 : rate.reference_usdt_price;
     if (!usdtPrice || !(usdtPrice > 0)) return Response.json({ status: "unavailable", rate: null });
-    const cached = priceAsset(rate.reference_rate, usdtPrice, marginTierFor(settings, "bulk", symbol));
+    const cached = priceAsset(
+      rate.reference_rate,
+      usdtPrice,
+      marginTierFor(settings, "bulk", symbol),
+      conversionCostPercent(symbol),
+    );
     price = { ...cached, referenceRate: rate.reference_rate };
   }
 

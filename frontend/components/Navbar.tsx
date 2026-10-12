@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { orbitalConfig } from "@/config/orbital";
 
 // Explore -> the About section (the first stop right after the hero).
-// Rates -> the Assets section, which is the live BTC/USDT/USDC/SOL price ticker.
+// Rates -> the Assets section: the coins ORBITAL trades and the market ticker.
 // Section links are prefixed with "/" so they also work from other pages
 // (e.g. /how-it-works), not just the homepage.
 const navLinks = [

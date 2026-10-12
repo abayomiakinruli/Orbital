@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Space_Grotesk, DM_Sans } from "next/font/google";
 import { orbitalConfig } from "@/config/orbital";
+import { siteUrl } from "@/config/siteUrl";
 import Tracker from "@/frontend/components/Tracker";
 import SiteMotion from "@/frontend/components/SiteMotion";
 import SplashScreen from "@/frontend/components/SplashScreen";
@@ -19,12 +20,9 @@ const dmSans = DM_Sans({
   weight: ["400", "500", "700"],
 });
 
-// The public address, set per deployment (SITE_URL in the environment).
-// Used for link previews and search; the placeholder only matters locally.
-const siteUrl = process.env.SITE_URL ?? "https://orbital.example.com";
 const title = "ORBITAL | Trade Beyond Borders";
 const description =
-  "ORBITAL is a digital asset trading business offering a simple, transparent way to buy and sell BTC, USDT, USDC and SOL. Trade on Telegram, get support on WhatsApp.";
+  "ORBITAL is a digital asset trading business offering a simple, transparent way to buy and sell BTC, ETH, USDT, USDC and SOL. Trade on Telegram, get support on WhatsApp.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

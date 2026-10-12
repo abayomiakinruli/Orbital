@@ -5,7 +5,7 @@ import Footer from "@/frontend/components/Footer";
 import { SupportIllustration } from "@/frontend/components/Illustrations";
 import Reveal from "@/frontend/components/Reveal";
 import { ChatIcon, CheckIcon, ReceiptIcon, SparkIcon } from "@/frontend/components/Icons";
-import { orbitalConfig } from "@/config/orbital";
+import { orbitalConfig, supportChoices } from "@/config/orbital";
 
 export const metadata: Metadata = {
   title: "Support",
@@ -69,8 +69,8 @@ export default function SupportPage() {
             <div>
               <Reveal>
                 <p className="max-w-2xl text-lg leading-relaxed text-graphite">
-                  Our support team works on WhatsApp. Tell us what you need below and a member
-                  of the team will reply.
+                  Our support team works on WhatsApp. Choose what you need help with and
+                  WhatsApp opens with your message ready to send.
                 </p>
               </Reveal>
               <ul className="mt-10 divide-y divide-line border-y border-line">
@@ -109,22 +109,34 @@ export default function SupportPage() {
                     WhatsApp support
                   </p>
                   <p className="mt-4 font-display text-3xl font-medium tracking-tight text-paper">
-                    {orbitalConfig.whatsappDisplay}
+                    Chat with our team.
                   </p>
                   <p className="mt-4 text-base leading-relaxed text-white">
+                    What do you need help with? Pick one and WhatsApp opens with your message
+                    already written.
+                  </p>
+                </div>
+                <div className="mt-8 flex flex-col gap-4">
+                  {/* Each choice opens WhatsApp with a matching message drafted. */}
+                  <ul className="flex flex-col gap-3">
+                    {supportChoices.map((choice) => (
+                      <li key={choice.label}>
+                        <a
+                          href={choice.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between gap-4 rounded-2xl border border-line-dark px-5 py-4 text-base font-medium text-paper transition-colors hover:border-accent hover:bg-accent hover:text-accent-ink"
+                        >
+                          {choice.label}
+                          <span aria-hidden="true">→</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-sm leading-relaxed text-white">
                     We will never ask for your recovery phrase, private keys or passwords. Anyone
                     who does is not ORBITAL.
                   </p>
-                </div>
-                <div className="mt-10 flex flex-col gap-4">
-                  <a
-                    href={orbitalConfig.whatsapp}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center rounded-full bg-accent px-8 py-4 text-sm font-medium text-accent-ink transition-colors hover:bg-white"
-                  >
-                    Chat on WhatsApp
-                  </a>
                   <p className="text-center text-sm text-white">
                     Ready to trade instead?{" "}
                     <Link href={orbitalConfig.tradePage} className="text-paper underline underline-offset-4 hover:text-accent">

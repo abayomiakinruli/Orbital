@@ -421,6 +421,7 @@ export function getDb(): DatabaseSync {
       );
       [
       ["USDT", "Tether"],
+      ["USDC", "USD Coin"],
       ["BTC", "Bitcoin"],
       ["ETH", "Ethereum"],
       ["SOL", "Solana"],

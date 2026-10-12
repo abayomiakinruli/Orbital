@@ -9,7 +9,9 @@ export default function OrbitalNotice({ slides }: { slides: NoticeSlide[] }) {
   if (slides.length === 0) return null;
 
   return (
-    <section aria-label="ORBITAL notice" className="bg-ink py-20 sm:py-28">
+    <section aria-label="ORBITAL notice" className="bg-ink py-12 sm:py-16">
+      {/* Narrower than the other sections: a flyer fills its card at 16:9,
+          so the width here is what keeps the card from getting too tall. */}
       <div className="mx-auto max-w-5xl px-6 lg:px-10">
         <Reveal>
           <NoticeCarousel slides={slides} />

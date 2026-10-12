@@ -69,7 +69,15 @@ function Slide({ slide, label }: { slide: NoticeSlide; label: string }) {
               hasText ? "aspect-video md:aspect-auto md:w-1/2" : "aspect-video flex-1 md:aspect-auto"
             }`}
           >
-            <Image src={slide.imageUrl} alt={alt} fill unoptimized className="object-contain" />
+            {/* A flyer on its own fills the whole card; beside text it is
+                shown whole instead. */}
+            <Image
+              src={slide.imageUrl}
+              alt={alt}
+              fill
+              unoptimized
+              className={hasText ? "object-contain" : "object-cover"}
+            />
             {/* An image-only post is usually a finished flyer with its own
                 call to action, so nothing is drawn over it; the whole image
                 links to the post's button link instead. */}
@@ -114,6 +122,9 @@ export default function NoticeCarousel({ slides }: { slides: NoticeSlide[] }) {
   // DOM order is oldest → newest, so the newest (slides[0]) sits on the
   // right; logical index i (0 = newest) lives at scroll position count-1-i.
   const ordered = [...slides].reverse();
+  // When every post is a flyer with no text, the card takes the flyers'
+  // 16:9 shape so each image fills it edge to edge.
+  const allFlyers = slides.every((s) => s.imageUrl && !s.title && !s.message);
   const scroller = useRef<HTMLDivElement>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [index, setIndex] = useState(0);
@@ -198,7 +209,9 @@ export default function NoticeCarousel({ slides }: { slides: NoticeSlide[] }) {
         onPointerDown={hold}
         onWheel={hold}
         onTouchStart={hold}
-        className={`no-scrollbar flex snap-x snap-mandatory items-stretch overflow-x-auto overscroll-x-contain md:h-104 ${
+        className={`no-scrollbar flex snap-x snap-mandatory items-stretch overflow-x-auto overscroll-x-contain ${
+          allFlyers ? "aspect-video" : "md:h-104"
+        } ${
           count > 1 ? "opacity-0 transition-opacity duration-300 data-[ready=true]:opacity-100" : ""
         }`}
       >

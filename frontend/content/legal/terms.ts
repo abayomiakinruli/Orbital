@@ -50,7 +50,7 @@ export const termsSections: LegalSection[] = [
       `- "Services" means everything ORBITAL provides, including the website, the Telegram bot, quotes, trades, trade tracking, announcements and customer support.`,
       `- "Telegram Bot" or "Bot" means the official ORBITAL Telegram bot, ${BOT}, and no other account.`,
       `- "Official Channels" means the ORBITAL website, the Telegram Bot and ORBITAL WhatsApp support at ${WA}, and any other channel ORBITAL publishes on its website as official.`,
-      `- "Digital Asset" means a cryptocurrency or stablecoin that ORBITAL supports from time to time, such as BTC, USDT, USDC and SOL.`,
+      `- "Digital Asset" means a cryptocurrency or stablecoin that ORBITAL supports from time to time, such as BTC, ETH, USDT, USDC and SOL.`,
       `- "Trade" means a transaction in which you buy a Digital Asset from ORBITAL or sell a Digital Asset to ORBITAL.`,
       `- "Quote" means a rate the Bot gives you for a proposed Trade, together with its expiry time.`,
       `- "Rate" means the naira price per unit of a Digital Asset at which ORBITAL is willing to buy or sell, including ORBITAL's margin.`,
@@ -108,7 +108,7 @@ export const termsSections: LegalSection[] = [
   {
     heading: "Supported Digital Assets",
     body: [
-      "ORBITAL currently supports Bitcoin (BTC), Tether (USDT), USD Coin (USDC) and Solana (SOL). The Bot shows the Digital Assets available at any given time, and that list is the authoritative one.",
+      "ORBITAL currently supports Bitcoin (BTC), Ethereum (ETH), Tether (USDT), USD Coin (USDC) and Solana (SOL). The Bot shows the Digital Assets available at any given time, and that list is the authoritative one.",
       "ORBITAL may add, suspend or remove a Digital Asset or Network at any time, for example because of market conditions, liquidity, Network problems, security concerns or legal requirements. Removing a Digital Asset does not affect a Trade that ORBITAL has already confirmed, unless completing it has become unlawful or technically impossible, in which case section 34 applies.",
       "Each Digital Asset may only be sent on the Networks the Bot lists for it. A Digital Asset sent on any other Network may be permanently lost.",
     ],

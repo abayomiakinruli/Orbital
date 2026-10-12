@@ -1,6 +1,6 @@
 # ORBITAL
 
-**Trade Beyond Borders.** ORBITAL is a digital asset trading service for buying and selling BTC, USDT, USDC and SOL at naira rates. Customers trade through a Telegram bot, get support on WhatsApp, and use this website for rates, news and trade tracking.
+**Trade Beyond Borders.** ORBITAL is a digital asset trading service for buying and selling BTC, ETH, USDT, USDC and SOL at naira rates. Customers trade through a Telegram bot, get support on WhatsApp, and use this website for rates, news and trade tracking.
 
 This repository holds all three parts:
 
@@ -79,4 +79,4 @@ ESLint enforces the boundary: frontend code may import backend *types* only, and
 
 ## Deploying
 
-See [.claude/DEPLOY.md](.claude/DEPLOY.md). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).
+See [DEPLOY.md](DEPLOY.md). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).

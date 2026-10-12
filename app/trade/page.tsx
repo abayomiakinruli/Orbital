@@ -11,7 +11,7 @@ import { BankIcon, PhoneIcon, ReceiptIcon, WalletIcon } from "@/frontend/compone
 export const metadata: Metadata = {
   title: "Trade",
   description:
-    "Get ready to trade BTC, USDT, USDC and SOL with ORBITAL, then continue to the official ORBITAL Telegram trading bot.",
+    "Get ready to trade BTC, ETH, USDT, USDC and SOL with ORBITAL, then continue to the official ORBITAL Telegram trading bot.",
 };
 
 const checklist = [

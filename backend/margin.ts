@@ -11,6 +11,14 @@
 // regardless of how much one unit is worth.
 //
 // "Percentage" is simpler: a % of that asset's own NGN reference rate.
+//
+// On top of the margin sits the conversion cost, for every coin except USDT.
+// ORBITAL settles in USDT, so a BTC, ETH, SOL or USDC trade also means
+// swapping that coin to or from USDT on Bybit, which costs a trading fee and
+// a little price spread. `conversionPercent` (a % of the reference rate) is
+// added to the buy price and taken off the sell price so the margin above is
+// what ORBITAL actually keeps. The figure comes from
+// backend/rateEngine.ts conversionCostPercent.
 
 export type MarginMode = "percentage" | "fixed";
 
@@ -33,12 +41,14 @@ export function priceAsset(
   referenceNgnRate: number,
   assetUsdtPrice: number,
   tier: MarginTier,
+  conversionPercent = 0,
 ): { buy: number; sell: number } {
   const buyMargin = computeMargin(tier.mode, tier.buy, referenceNgnRate, assetUsdtPrice);
   const sellMargin = computeMargin(tier.mode, tier.sell, referenceNgnRate, assetUsdtPrice);
+  const conversion = referenceNgnRate * (conversionPercent / 100);
   return {
-    buy: round2(referenceNgnRate + buyMargin),
-    sell: round2(referenceNgnRate - sellMargin),
+    buy: round2(referenceNgnRate + buyMargin + conversion),
+    sell: round2(referenceNgnRate - sellMargin - conversion),
   };
 }
 

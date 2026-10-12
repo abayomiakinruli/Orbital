@@ -1,5 +1,5 @@
 import { Bot, InlineKeyboard, type Context } from "grammy";
-import { orbitalConfig } from "../../config/orbital";
+import { supportChoices } from "../../config/orbital";
 import { tradeOutcomeMessage } from "../tradeMessages";
 import {
   checkAccountName,
@@ -193,6 +193,7 @@ type Draft = {
   bankFromSaved?: boolean; // the bank account in use was picked from the saved list
   addressFromSaved?: boolean; // the receiving address in use was picked from the saved list
   renaming?: boolean; // the next name entered is a rename, not first-time setup
+  tradeAfterName?: boolean; // asked for a name on the way into a trade: show Buy/Sell next
 };
 const drafts = new Map<number, Draft>();
 const draftFor = (id: number) => {
@@ -216,7 +217,15 @@ export const mainMenuKeyboard = () =>
     .row()
     .text("View profile", "profile")
     .row()
-    .url("Customer Support", orbitalConfig.whatsapp);
+    .text("Customer Support", "support");
+
+// What "Customer Support" opens: the usual reasons plus "Other". Each button
+// opens WhatsApp with a matching message already typed (config/orbital.ts).
+export const supportKeyboard = () => {
+  const keyboard = new InlineKeyboard();
+  for (const choice of supportChoices) keyboard.url(choice.label, choice.url).row();
+  return keyboard.text("Back", "mainMenu");
+};
 
 // Kept as aliases so existing imports keep working.
 export const newUserMenu = mainMenuKeyboard;
@@ -227,7 +236,7 @@ export const profileKeyboard = () =>
   new InlineKeyboard()
     .text("Edit details", "profileEdit")
     .row()
-    .url("Customer Support", orbitalConfig.whatsapp)
+    .text("Customer Support", "support")
     .row()
     .text("Back", "mainMenu");
 
@@ -296,6 +305,16 @@ bot.command("start", async (ctx) => {
   await ctx.reply(`Welcome back, ${esc(customer.preferred_name)}! Good to have you back with ORBITAL. What would you like to do?`, {
     reply_markup: returningCustomerMenu(),
   });
+});
+
+// Sent as a new message, so whatever the customer was looking at (an error,
+// their profile) stays in the chat above it.
+bot.callbackQuery("support", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.reply(
+    "CUSTOMER SUPPORT\n\nWhat do you need help with? Choose one and WhatsApp will open with your message ready to send.",
+    { reply_markup: supportKeyboard() },
+  );
 });
 
 bot.callbackQuery("mainMenu", async (ctx) => {
@@ -518,19 +537,35 @@ bot.callbackQuery("rate", async (ctx) => {
 
 // --- Trade: asset --------------------------------------------------------
 
-bot.command("trade", async (ctx) => {
-  if (!ctx.from) return;
-  drafts.set(ctx.from.id, { step: null });
-  await ctx.reply("What would you like to do?", {
-    reply_markup: new InlineKeyboard().text("Buy", "side:buy").text("Sell", "side:sell"),
-  });
-});
+const buyOrSellKeyboard = () => new InlineKeyboard().text("Buy", "side:buy").text("Sell", "side:sell");
+
+// Starts a trade. Someone new (no account yet, or no name on it) is welcomed
+// and asked what to call them first; their Telegram ID and that name are saved
+// on the backend, and the trade carries on once the name is in.
+async function startTrade(ctx: Context) {
+  const from = ctx.from;
+  if (!from) return;
+  const draft: Draft = { step: null };
+  drafts.set(from.id, draft);
+  let customer: CustomerAccount | null;
+  try {
+    customer = (await lookupCustomer(from)) ?? (await registerAccount(from));
+  } catch (e) {
+    console.error("Could not load customer before a trade:", e);
+    return ctx.reply("I can’t connect to ORBITAL right now. Please try again shortly.");
+  }
+  if (!customer.preferred_name) {
+    draft.step = "preferredName";
+    draft.tradeAfterName = true;
+    return ctx.reply("Welcome to ORBITAL! We’re glad to have you here. Before we start your trade, what would you like us to call you?");
+  }
+  await ctx.reply("What would you like to do?", { reply_markup: buyOrSellKeyboard() });
+}
+
+bot.command("trade", startTrade);
 bot.callbackQuery("trade", async (ctx) => {
-  drafts.set(ctx.from.id, { step: null });
   await ctx.answerCallbackQuery();
-  await ctx.reply("What would you like to do?", {
-    reply_markup: new InlineKeyboard().text("Buy", "side:buy").text("Sell", "side:sell"),
-  });
+  await startTrade(ctx);
 });
 
 bot.callbackQuery(/^side:(buy|sell)$/, async (ctx) => {
@@ -573,7 +608,7 @@ bot.callbackQuery(/^asset:(\w+)$/, async (ctx) => {
     draft.step = null;
     return ctx.editMessageText(
       `Rates for ${asset} are temporarily unavailable. Please try again shortly or contact support.`,
-      { reply_markup: new InlineKeyboard().url("Customer Support", orbitalConfig.whatsapp) },
+      { reply_markup: new InlineKeyboard().text("Customer Support", "support") },
     );
   }
   draft.quoteId = quote.quoteId;
@@ -581,15 +616,15 @@ bot.callbackQuery(/^asset:(\w+)$/, async (ctx) => {
   if (draft.side === "buy") draft.buyRate = quote.rate;
   else draft.sellRate = quote.rate;
 
+  // Buying or selling, the amount comes first. The rate is shown once we know
+  // how much is being traded (the "buyAmount" and "sellCoin" steps), since a
+  // large trade is priced at the bulk rate.
   if (draft.side === "buy") {
     draft.step = "buyAmount";
     await ctx.editMessageText(
-      `Buy ${asset}\n\nRate: ${naira(quote.rate)} / ${asset}\n\nHow much ${asset} do you want to buy?`,
+      `Buy ${asset}\n\nHow much ${asset} do you want to buy? Enter the amount in ${asset}, for example 50.`,
     );
   } else {
-    // Selling: the amount comes first. The rate is shown once we know how
-    // much is being sold (see the "sellCoin" step), since a large sale can be
-    // priced differently.
     draft.step = "sellCoin";
     await ctx.editMessageText(
       `Sell ${asset}\n\nHow much ${asset} do you want to sell? Enter the amount in ${asset}, for example 50.`,
@@ -1104,7 +1139,7 @@ async function continueSell(ctx: Context, draft: Draft) {
     if (ctx.from) drafts.delete(ctx.from.id);
     return ctx.editMessageText(
       `We don't have a deposit address set up for ${draft.asset} right now. Please contact support to complete this sell.`,
-      { reply_markup: new InlineKeyboard().url("Customer Support", orbitalConfig.whatsapp) },
+      { reply_markup: new InlineKeyboard().text("Customer Support", "support") },
     );
   }
 
@@ -1276,6 +1311,13 @@ bot.on("message:text", async (ctx) => {
       return ctx.reply("I couldn’t save that just now. Please try again shortly.");
     }
     draft.step = null;
+    if (draft.tradeAfterName) {
+      // They were on their way to a trade when we asked: carry on with it.
+      draft.tradeAfterName = false;
+      return ctx.reply(`Nice to meet you, ${esc(name)}! What would you like to do?`, {
+        reply_markup: buyOrSellKeyboard(),
+      });
+    }
     if (draft.renaming) {
       draft.renaming = false;
       return ctx.reply(`Done! We'll call you ${name} from now on.`, { reply_markup: mainMenuKeyboard() });
@@ -1289,8 +1331,20 @@ bot.on("message:text", async (ctx) => {
     const value = Number(amount.value);
     const nairaValue = exactNaira(value * draft.buyRate!);
     if (nairaValue < MIN_NGN) return ctx.reply(belowMinimum(nairaValue));
+    // Now that the amount is known, get the rate for a purchase of this size
+    // (the bulk rate for a large one) before showing the summary.
+    const sized = await requestQuote(draft.asset!, "buy", nairaValue).catch(() => null);
+    if (!sized || sized.rate === null) {
+      return ctx.reply(
+        `Rates for ${draft.asset} are temporarily unavailable. Please try again shortly or contact support.`,
+        { reply_markup: new InlineKeyboard().text("Customer Support", "support") },
+      );
+    }
+    draft.buyRate = sized.rate;
+    draft.quoteId = sized.quoteId;
+    draft.quoteExpiresAt = sized.expiresAt;
     draft.coinAmount = value;
-    draft.nairaAmount = nairaValue;
+    draft.nairaAmount = exactNaira(value * sized.rate);
     draft.step = null;
     let durationMinutes: number | null = null;
     try {
@@ -1324,7 +1378,7 @@ bot.on("message:text", async (ctx) => {
     if (!sized || sized.rate === null) {
       return ctx.reply(
         `Rates for ${draft.asset} are temporarily unavailable. Please try again shortly or contact support.`,
-        { reply_markup: new InlineKeyboard().url("Customer Support", orbitalConfig.whatsapp) },
+        { reply_markup: new InlineKeyboard().text("Customer Support", "support") },
       );
     }
     draft.sellRate = sized.rate;
@@ -1390,7 +1444,7 @@ bot.on("message:text", async (ctx) => {
     if (!trade) {
       return ctx.reply(
         "We couldn't find a transaction with that ID. Please check it and try again, or contact support.",
-        { reply_markup: new InlineKeyboard().url("Customer Support", orbitalConfig.whatsapp) },
+        { reply_markup: new InlineKeyboard().text("Customer Support", "support") },
       );
     }
     draft.trackedTradeId = trade.trade_id;

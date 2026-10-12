@@ -16,10 +16,25 @@ import { dbTime } from "@/shared/format";
 //   X == USDT?  reference_ngn = that midpoint
 //   X != USDT?  reference_ngn = that midpoint × (X/USDT ticker price)
 //   apply the margin tier (regular/bulk)  →  buy/sell
+//   X != USDT?  widen both by the cost of converting X to/from USDT
 //
 // USDT/NGN itself needs the P2P endpoint (there's no public NGN spot
 // market) — everything else uses the public, unauthenticated spot ticker,
 // so a thin/nonexistent P2P market for that asset is never a dependency.
+
+// What it costs ORBITAL, as a % of the trade, to swap a coin to or from USDT
+// on Bybit: the spot trading fee (0.1% on a standard account) plus an
+// allowance for the bid/ask spread and the price moving before the swap is
+// done. Nothing for USDT itself. Set ORBITAL_CONVERSION_COST_PERCENT to match
+// your own Bybit fee tier; 0 switches it off.
+const DEFAULT_CONVERSION_COST_PERCENT = 0.2;
+export function conversionCostPercent(symbol: string): number {
+  if (symbol.toUpperCase() === "USDT") return 0;
+  const raw = process.env.ORBITAL_CONVERSION_COST_PERCENT;
+  const value = raw === undefined || raw.trim() === "" ? DEFAULT_CONVERSION_COST_PERCENT : Number(raw);
+  // A bad or extreme setting must not distort customer prices.
+  return Number.isFinite(value) && value >= 0 && value <= 5 ? value : DEFAULT_CONVERSION_COST_PERCENT;
+}
 
 export async function usdtNgnReference(): Promise<number> {
   // getBybitReference uses the shared bounded transport in bybit.ts: one
@@ -58,7 +73,12 @@ export async function priceAssetLive(
   const referenceRate = isUsdt ? usdtNgn : usdtNgn * usdtPrice!;
 
   const settings = getMarginSettings();
-  const { buy, sell } = priceAsset(referenceRate, isUsdt ? 1 : usdtPrice!, marginTierFor(settings, tier, sym));
+  const { buy, sell } = priceAsset(
+    referenceRate,
+    isUsdt ? 1 : usdtPrice!,
+    marginTierFor(settings, tier, sym),
+    conversionCostPercent(sym),
+  );
   if (!(buy > 0) || !(sell > 0) || buy < sell) {
     throw new Error(`Computed rate looked invalid for ${sym} (buy ${buy}, sell ${sell})`);
   }

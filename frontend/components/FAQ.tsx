@@ -12,7 +12,7 @@ const faqs = [
   },
   {
     q: "Which coins can I trade?",
-    a: "Bitcoin (BTC), Tether (USDT), USD Coin (USDC) and Solana (SOL). More are on the roadmap.",
+    a: "Bitcoin (BTC), Ethereum (ETH), Tether (USDT), USD Coin (USDC) and Solana (SOL). More are on the roadmap.",
   },
   {
     q: "How is my rate worked out?",
